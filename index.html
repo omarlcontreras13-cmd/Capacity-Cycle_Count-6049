@@ -1537,28 +1537,32 @@ function exportCCWord() {
 </head>
 <body>
   ${locHtml}
-  <script>
-    // Auto-trigger print dialog after a short delay so content renders
-    window.onload = function() { setTimeout(function(){ window.print(); }, 400); };
-  <\/script>
+
 </body>
 </html>`;
 
 
-  // Use hidden iframe to print without opening a new tab
+  // Guard against double-trigger
+  if (window._ccPrinting) return;
+  window._ccPrinting = true;
+
+  // Use hidden iframe — remove any existing one first
   let frame = document.getElementById('cc-print-frame');
   if (frame) frame.remove();
   frame = document.createElement('iframe');
   frame.id = 'cc-print-frame';
-  frame.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;border:none';
+  frame.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;border:none;visibility:hidden';
   document.body.appendChild(frame);
   const doc = frame.contentDocument || frame.contentWindow.document;
   doc.open(); doc.write(printHtml); doc.close();
   setTimeout(()=>{
     frame.contentWindow.focus();
+    // Listen once — remove iframe and clear guard after print dialog closes
+    frame.contentWindow.addEventListener('afterprint', function() {
+      frame.remove();
+      window._ccPrinting = false;
+    }, { once: true });
     frame.contentWindow.print();
-    // Remove iframe after print dialog closes
-    frame.contentWindow.onafterprint = function() { frame.remove(); };
   }, 500);
   showAlert('✓ Opening print preview — landscape format.','success');
 }
