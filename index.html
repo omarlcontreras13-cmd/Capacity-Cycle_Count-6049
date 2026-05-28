@@ -1,0 +1,1918 @@
+<!DOCTYPE html>
+<!-- Capacity & Cycle Count — 6049 Fulton | Connects to PickFlow Firebase -->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Capacity / Cycle Count — 6049</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+  :root {
+    --bg:#f4f6fa; --surface:#ffffff; --surface2:#eef1f8;
+    --border:#d0d7e8; --text:#1a1f36; --text2:#5a6484;
+    --accent:#3d5ce6; --accent2:#1a9e7a; --warning:#d97706;
+    --danger:#e03e3e; --font:'Courier New',monospace;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:var(--font); font-size:13px; height:100vh; overflow:hidden; }
+
+  /* LOGIN */
+  .login-screen { position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:9999; }
+  .login-box { background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:36px 40px;width:360px;text-align:center; }
+  .login-logo { font-size:26px;font-weight:800;letter-spacing:3px;color:var(--accent);margin-bottom:4px; }
+  .login-logo span { color:var(--accent2); }
+  .login-sub { font-size:11px;color:var(--text2);letter-spacing:2px;margin-bottom:6px; }
+  .login-loc { font-size:11px;color:var(--warning);letter-spacing:1px;margin-bottom:24px; }
+  .user-btn { display:block;width:100%;padding:10px 14px;margin-bottom:8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);cursor:pointer;font-family:var(--font);font-size:13px;text-align:left;transition:border-color .2s; }
+  .user-btn:hover { border-color:var(--accent); }
+  .user-btn.selected { border-color:var(--accent);background:rgba(79,110,247,0.1); }
+  #pwd-section { margin-top:10px;display:none; }
+  #pwd-input { width:100%;padding:9px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font);font-size:13px;outline:none;margin-bottom:8px; }
+  #pwd-input:focus { border-color:var(--accent); }
+  #login-error { color:var(--danger);font-size:11px;margin-top:6px;display:none; }
+  #admin-toggle-btn { background:none;border:none;color:var(--text2);font-size:10px;cursor:pointer;letter-spacing:1px;margin-top:14px; }
+
+  /* LAYOUT */
+  #main-app { display:none;height:100vh;grid-template-columns:220px 1fr;grid-template-rows:48px 1fr; }
+  .header { grid-column:1/-1;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:16px; }
+  .header-logo { font-size:15px;font-weight:800;letter-spacing:2px;color:var(--accent); }
+  .header-logo span { color:var(--accent2); }
+  .header-loc { font-size:11px;color:var(--warning);letter-spacing:1px; }
+  .header-right { margin-left:auto;display:flex;align-items:center;gap:12px; }
+  #sync-dot { width:8px;height:8px;border-radius:50%;background:var(--accent2);display:inline-block;animation:pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.4} }
+  #data-status { font-size:10px;color:var(--text2);letter-spacing:1px; }
+  #user-display { font-size:11px;color:var(--accent);letter-spacing:1px; }
+  .btn-logout { background:none;border:1px solid var(--border);border-radius:6px;color:var(--text2);padding:4px 10px;cursor:pointer;font-size:11px;font-family:var(--font); }
+  .btn-logout:hover { border-color:var(--danger);color:var(--danger); }
+
+  /* SIDEBAR */
+  .sidebar { background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden; }
+  .sidebar-actions { padding:12px;display:flex;flex-direction:column;gap:8px;border-bottom:1px solid var(--border); }
+  .sidebar-nav { flex:1;overflow-y:auto;padding:8px; }
+
+  /* MAIN PANEL */
+  .main-panel { overflow-y:auto;padding:24px; }
+
+  /* BUTTONS */
+  .btn { display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-family:var(--font);font-size:12px;white-space:nowrap; }
+  .btn:hover { border-color:var(--accent);color:var(--accent); }
+  .btn-primary { background:var(--accent);border-color:var(--accent);color:#fff; }
+  .btn-primary:hover { background:#3d5ce0;border-color:#3d5ce0;color:#fff; }
+  .btn-success { background:var(--accent2);border-color:var(--accent2);color:#0f1117; }
+  .btn-danger { border-color:var(--danger);color:var(--danger);background:transparent; }
+  .btn-danger:hover { background:rgba(240,101,101,0.1); }
+  .btn:disabled { opacity:0.4;cursor:not-allowed; }
+  .btn-sm { padding:5px 10px;font-size:11px; }
+
+  /* STATS */
+  .stats-grid { display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px; }
+  .stat-card { background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px; }
+  .stat-label { font-size:10px;color:var(--text2);letter-spacing:1px;margin-bottom:6px; }
+  .stat-value { font-size:26px;font-weight:bold;color:var(--text); }
+  .stat-value.green { color:var(--accent2); }
+  .stat-value.yellow { color:var(--warning); }
+  .stat-value.red { color:var(--danger); }
+
+  /* TABLE */
+  .data-table { width:100%;border-collapse:collapse;font-size:11px; }
+  .data-table th { background:var(--surface);border-bottom:2px solid var(--border);padding:8px 10px;text-align:left;font-size:10px;letter-spacing:1px;color:var(--text2);white-space:nowrap; }
+  .data-table td { border-bottom:1px solid var(--border);padding:7px 10px; }
+  .data-table tr:hover td { background:rgba(79,110,247,0.04); }
+
+  /* MODAL */
+  .modal-overlay { position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:1000; }
+  .modal { background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px;max-width:560px;width:95vw;max-height:90vh;overflow-y:auto; }
+  .modal h2 { font-size:14px;letter-spacing:2px;color:var(--accent);margin-bottom:20px; }
+  .modal-actions { display:flex;gap:10px;justify-content:flex-end;margin-top:20px;padding-top:16px;border-top:1px solid var(--border); }
+  #modal-container { position:fixed;inset:0;z-index:999;pointer-events:none; }
+  #modal-container:not(:empty) { pointer-events:all; }
+
+  /* FORM */
+  .form-group { margin-bottom:12px; }
+  .form-group label { display:block;font-size:10px;color:var(--text2);letter-spacing:1px;margin-bottom:5px; }
+  .form-group input,.form-group select { width:100%;padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--font);font-size:12px;outline:none; }
+  .form-group input:focus,.form-group select:focus { border-color:var(--accent); }
+
+  /* ALERTS */
+  .alert { padding:10px 14px;border-radius:8px;font-size:12px;margin-bottom:12px; }
+  .alert-info { background:rgba(61,92,230,0.08);border:1px solid rgba(61,92,230,0.25);color:var(--accent); }
+  .alert-success { background:rgba(26,158,122,0.08);border:1px solid rgba(26,158,122,0.25);color:var(--accent2); }
+  .alert-warning { background:rgba(217,119,6,0.08);border:1px solid rgba(217,119,6,0.25);color:var(--warning); }
+  .alert-danger { background:rgba(224,62,62,0.08);border:1px solid rgba(224,62,62,0.25);color:var(--danger); }
+
+  /* CAPACITY TABLE */
+  .cap-table-wrap { overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 320px);position:relative; }
+  .cap-table { width:100%;border-collapse:collapse;font-size:11px; }
+  .cap-table th { position:sticky;top:0;z-index:2;background:var(--surface);border-bottom:2px solid var(--border);padding:8px 10px;text-align:left;font-size:10px;letter-spacing:1px;color:var(--text2);white-space:nowrap; }
+  .cap-table td { border-bottom:1px solid var(--border);padding:7px 10px;vertical-align:top; }
+  .cap-table tr:hover td { background:rgba(79,110,247,0.03); }
+
+  /* CYCLE COUNT */
+  .cc-loc-list { max-height:300px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:6px; }
+  .cc-loc-item { display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:4px;cursor:pointer;font-size:11px; }
+  .cc-loc-item:hover { background:rgba(79,110,247,0.07); }
+  .cc-entry-table { width:100%;border-collapse:collapse;font-size:11px; }
+  .cc-entry-table th { background:var(--surface);border-bottom:2px solid var(--border);padding:8px 10px;font-size:10px;letter-spacing:1px;color:var(--text2); }
+  .cc-entry-table td { border-bottom:1px solid var(--border);padding:6px 10px; }
+  .cc-entry-table input[type=number] { width:80px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:4px 8px;color:var(--text);font-family:var(--font);font-size:11px;outline:none;text-align:right; }
+  .cc-entry-table input[type=text] { width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:4px 8px;color:var(--text);font-family:var(--font);font-size:11px;outline:none; }
+
+  /* Remove number input spinners */
+  input[type=number]::-webkit-outer-spin-button,
+  input[type=number]::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
+  input[type=number] { -moz-appearance:textfield; appearance:textfield; }
+
+  @media print {
+    .sidebar,.header,.no-print { display:none!important; }
+    #main-app { display:block; }
+    .main-panel { overflow:visible;padding:0; }
+    body { overflow:visible; }
+  }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen" class="login-screen">
+  <div class="login-box">
+    <div class="login-logo">PICK<span>FLOW</span></div>
+    <div class="login-sub">CAPACITY & CYCLE COUNT</div>
+    <div class="login-loc">📍 LOCATION 6049 — FULTON</div>
+    <div id="user-list-regular"></div>
+    <div id="user-list-admin" style="display:none;border-top:1px solid var(--border);padding-top:10px;margin-top:10px"></div>
+    <div id="pwd-section">
+      <input type="password" id="pwd-input" placeholder="Enter password..." onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="btn btn-primary" id="login-btn" onclick="doLogin()" disabled style="width:100%;margin-top:10px">Sign In →</button>
+    <div id="login-error">Incorrect password</div>
+    <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:10px">
+      <button id="admin-toggle-btn" onclick="toggleAdminLogin()">••• ADMIN</button>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="main-app" style="display:none;height:100vh;display:grid;grid-template-columns:220px 1fr;grid-template-rows:48px 1fr">
+  <div class="header">
+    <div class="header-logo">PICK<span>FLOW</span></div>
+    <div style="font-size:11px;color:var(--text2)">Capacity & Cycle Count</div>
+    <div class="header-loc">6049 — FULTON</div>
+    <div class="header-right">
+      <div id="sync-dot"></div>
+      <div id="data-status" style="font-size:10px;color:var(--text2)">CONNECTING...</div>
+      <div id="user-display" style="font-size:11px;color:var(--accent)"></div>
+      <button class="btn-logout" onclick="logout()">Sign Out</button>
+    </div>
+  </div>
+
+  <div class="sidebar">
+    <div class="sidebar-actions">
+      <button class="btn btn-primary" onclick="showCapacity()" id="cap-btn">📦 Location Capacity</button>
+      <button class="btn btn-success" onclick="showCycleCountStart()" id="cc-btn">🔢 Cycle Count</button>
+      <button class="btn" onclick="showImportModal()" id="import-btn" style="font-size:11px;display:none">⬆ Import Data</button>
+      <button class="btn" onclick="showUserManagement()" id="manage-users-btn" style="font-size:11px;display:none">👥 Manage Users</button>
+    </div>
+    <div class="sidebar-nav" id="cc-history-nav">
+      <div style="font-size:10px;color:var(--text2);letter-spacing:1px;padding:8px 4px">RECENT COUNTS</div>
+      <div id="cc-history-list"><div style="font-size:11px;color:var(--text2);padding:8px 4px">Loading...</div></div>
+    </div>
+  </div>
+
+  <div class="main-panel" id="main-panel">
+    <div style="display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;gap:16px;color:var(--text2)">
+      <div style="font-size:40px">📦</div>
+      <div style="font-size:13px;letter-spacing:1px">Select a view from the sidebar</div>
+    </div>
+  </div>
+</div>
+
+<div id="modal-container"></div>
+
+<!-- NOTIFY -->
+<div id="notify" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:9999;display:none;min-width:360px;max-width:600px;padding:20px 28px;text-align:center;font-size:16px;font-weight:bold;border-radius:10px;border-width:2px;box-shadow:0 8px 32px rgba(0,0,0,0.4)"></div>
+
+<script>
+// ─── USERS ────────────────────────────────────────────────────────────────────
+const USERS = [
+  { id:'Ocontreras', name:'Omar Contreras',  password:null,     role:'admin' },
+  { id:'Jpiper',     name:'Josh Piper',      password:'JP6049', role:'user'  },
+  { id:'Lpiper',     name:'Luke Piper',      password:'LP6049', role:'user'  },
+  { id:'Acrwoder',   name:'Anterion Crowder',password:'AC6049', role:'user'  },
+  { id:'Zaguilera',  name:'Zaira Aguilera',  password:'ZA6049', role:'user'  },
+  { id:'Laguilera',  name:'Lexy Aguilera',   password:'LA6049', role:'user'  },
+];
+
+// ─── STATE ────────────────────────────────────────────────────────────────────
+const state = {
+  currentUser: null,
+  rawInventory: [],
+  qtyGuide: {},
+  skuNames: {},
+  capacityRef: {},
+  lastImport: null,
+  dataLoaded: false,
+  users: []
+};
+
+// ─── FIREBASE ─────────────────────────────────────────────────────────────────
+const FB_CONFIG = { databaseURL: "https://pickflow-3b80d-default-rtdb.firebaseio.com" };
+let db = null;
+
+function initFirebase() {
+  try {
+    if (typeof firebase === 'undefined') { setTimeout(initFirebase, 300); return; }
+    if (!firebase.apps.length) firebase.initializeApp(FB_CONFIG);
+    db = firebase.database();
+    setSyncStatus('connecting');
+    listenToFirebase();
+  } catch(e) { setSyncStatus('error'); }
+}
+
+function setSyncStatus(s) {
+  const dot = document.getElementById('sync-dot');
+  const txt = document.getElementById('data-status');
+  if (!dot||!txt) return;
+  const map = { connected:{color:'var(--accent2)',text:'LIVE'}, connecting:{color:'var(--warning)',text:'CONNECTING...'}, error:{color:'var(--danger)',text:'OFFLINE'} };
+  const st = map[s]||map.connecting;
+  dot.style.background = st.color;
+  txt.textContent = st.text;
+}
+
+function listenToFirebase() {
+  if (!db) return;
+  db.ref('.info/connected').on('value', s => setSyncStatus(s.val() ? 'connected' : 'connecting'));
+
+  // Capacity Reference — managed by this app
+  // Users — load from Firebase, seed defaults if empty
+  db.ref('ccUsers').on('value', snap => {
+    const data = snap.val();
+    if (data && Object.keys(data).length) {
+      state.users = Object.entries(data).map(([id,u])=>({id,...u}));
+      // Always ensure Omar has no password (master admin)
+      const omar = state.users.find(u=>u.id==='Ocontreras');
+      if (omar && omar.password !== null) {
+        omar.password = null;
+        db.ref('ccUsers/Ocontreras/password').set(null).catch(()=>{});
+      }
+    } else {
+      state.users = USERS.map(u=>({...u}));
+      const seed = {};
+      state.users.forEach(u=>{ seed[u.id]={name:u.name,password:u.password,role:u.role}; });
+      db.ref('ccUsers').set(seed).catch(()=>{});
+    }
+    buildLoginScreen();
+  });
+
+  db.ref('capacityRef').on('value', snap => {
+    const d = snap.val();
+    if (d && Object.keys(d).length) {
+      state.capacityRef = d;
+      if (document.getElementById('cap-filter-loc')) showCapacity();
+    }
+  });
+
+  // Read-only from PickFlow 6049
+  db.ref('qtyGuide').on('value', snap => {
+    const d = snap.val();
+    if (d) { state.qtyGuide = d.guide||d; state.skuNames = d.names||{}; }
+  });
+  db.ref('skuNames').on('value', snap => { const d=snap.val(); if(d) state.skuNames=d; });
+  db.ref('rawInventory').on('value', snap => {
+    const d = snap.val();
+    if (d && Array.isArray(d) && d.length) {
+      state.rawInventory = d;
+      state.dataLoaded = true;
+      updateDataStatus();
+      if (document.getElementById('cap-filter-loc')) showCapacity();
+      loadCCHistory();
+    }
+  });
+  db.ref('lastImport').on('value', snap => {
+    state.lastImport = snap.val();
+    updateDataStatus();
+  });
+}
+
+function updateDataStatus() {
+  const el = document.getElementById('data-status');
+  if (!el) return;
+  if (state.dataLoaded) {
+    const t = state.lastImport ? ' · ' + new Date(state.lastImport).toLocaleDateString('en-US',{month:'2-digit',day:'2-digit'}) + ' ' + new Date(state.lastImport).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) : '';
+    el.textContent = state.rawInventory.length.toLocaleString() + ' RECORDS' + t;
+  }
+}
+
+// ─── AUTH ─────────────────────────────────────────────────────────────────────
+let selectedUserId = null;
+
+function buildLoginScreen() {
+  const reg = document.getElementById('user-list-regular');
+  const adm = document.getElementById('user-list-admin');
+  if (!reg) return;
+  const users = state.users.length ? state.users : USERS;
+  reg.innerHTML = users.filter(u=>u.id!=='Ocontreras').map(u=>
+    `<button class="user-btn" onclick="selectUser(this,'${u.id}')">${u.name}</button>`).join('');
+  adm.innerHTML = users.filter(u=>u.id==='Ocontreras').map(u=>
+    `<button class="user-btn" onclick="selectUser(this,'${u.id}')">${u.name}</button>`).join('');
+}
+
+function toggleAdminLogin() {
+  const sec = document.getElementById('user-list-admin');
+  const btn = document.getElementById('admin-toggle-btn');
+  const show = sec.style.display === 'none';
+  sec.style.display = show ? 'block' : 'none';
+  btn.textContent = show ? '▲ HIDE ADMIN' : '••• ADMIN';
+  btn.style.color = show ? 'var(--accent)' : 'var(--text2)';
+}
+
+function selectUser(btn, uid) {
+  selectedUserId = uid;
+  document.querySelectorAll('.user-btn').forEach(b=>b.classList.remove('selected'));
+  btn.classList.add('selected');
+  const user = (state.users.length?state.users:USERS).find(u=>u.id===uid);
+  const pwd = document.getElementById('pwd-section');
+  document.getElementById('login-error').style.display = 'none';
+  if (user.password===null) { pwd.style.display='none'; document.getElementById('login-btn').disabled=false; }
+  else { pwd.style.display='block'; document.getElementById('pwd-input').value=''; document.getElementById('pwd-input').focus(); document.getElementById('login-btn').disabled=false; }
+}
+
+function doLogin() {
+  if (!selectedUserId) return;
+  const user = (state.users.length?state.users:USERS).find(u=>u.id===selectedUserId);
+  if (!user) return;
+  if (user.password!==null) {
+    const entered = document.getElementById('pwd-input').value;
+    if (entered!==user.password) { document.getElementById('login-error').style.display='block'; document.getElementById('pwd-input').value=''; return; }
+  }
+  state.currentUser = user;
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('main-app').style.display = 'grid';
+  document.getElementById('user-display').textContent = user.name.split(' ')[0].toUpperCase();
+  document.getElementById('import-btn').style.display = 'flex';
+  const muBtn = document.getElementById('manage-users-btn');
+  if (muBtn) muBtn.style.display = user.role==='admin' ? 'flex' : 'none';
+  loadCCHistory();
+  if (state.dataLoaded) showCapacity();
+}
+
+function logout() {
+  state.currentUser = null; selectedUserId = null;
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('main-app').style.display = 'none';
+  document.querySelectorAll('.user-btn').forEach(b=>b.classList.remove('selected'));
+  document.getElementById('pwd-section').style.display='none';
+  document.getElementById('login-btn').disabled=true;
+  document.getElementById('login-error').style.display='none';
+}
+
+function isAdmin() { return state.currentUser && state.currentUser.role==='admin'; }
+function closeModal() { document.getElementById('modal-container').innerHTML=''; }
+
+// ─── NOTIFICATIONS ────────────────────────────────────────────────────────────
+function showAlert(msg, type) {
+  const el = document.getElementById('notify');
+  const colors = { success:'#1a9e7a', warning:'#d97706', danger:'#e03e3e', info:'#3d5ce6' };
+  el.style.cssText = `position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:9999;min-width:360px;max-width:600px;padding:20px 28px;text-align:center;font-size:16px;font-weight:bold;border-radius:10px;border:2px solid ${colors[type]||colors.info}88;background:${colors[type]||colors.info};color:#fff;box-shadow:0 8px 32px rgba(0,0,0,0.4)`;
+  el.textContent = msg;
+  el.style.display = 'block';
+  setTimeout(()=>{ el.style.display='none'; }, 4000);
+}
+
+// ─── IMPORT CAPACITY REFERENCE ────────────────────────────────────────────────
+function showImportModal() {
+  const qtyLoaded = Object.keys(state.qtyGuide).length > 0;
+  const invLoaded = state.rawInventory.length > 0;
+  const capLoaded = Object.keys(state.capacityRef).length > 0;
+  const lastImportStr = state.lastImport ? new Date(state.lastImport).toLocaleString() : null;
+  document.getElementById('modal-container').innerHTML = `
+    <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
+      <div class="modal">
+        <h2>⬆ IMPORT DATA</h2>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px">
+          <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;padding:10px;border:1px solid var(--border);border-radius:6px;font-size:12px">
+            <input type="radio" name="itype" value="inv" checked style="margin-top:2px">
+            <div>
+              <div style="font-weight:bold;color:var(--text)">Customer Inventory File</div>
+              <div style="color:var(--text2);font-size:11px">Daily inventory export — auto-detects headers</div>
+              ${invLoaded ? '<div style="color:var(--accent2);font-size:11px;margin-top:3px">✓ '+state.rawInventory.length.toLocaleString()+' records loaded'+(lastImportStr?' · '+lastImportStr:'')+'</div>' : '<div style="color:var(--warning);font-size:11px;margin-top:3px">⚠ Not loaded yet</div>'}
+            </div>
+          </label>
+          <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;padding:10px;border:1px solid var(--border);border-radius:6px;font-size:12px">
+            <input type="radio" name="itype" value="qty" style="margin-top:2px">
+            <div>
+              <div style="font-weight:bold;color:var(--text)">QTY Guide File</div>
+              <div style="color:var(--text2);font-size:11px">Pallet quantities per SKU — saved permanently to all users</div>
+              ${qtyLoaded ? '<div style="color:var(--accent2);font-size:11px;margin-top:3px">✓ '+Object.keys(state.qtyGuide).length+' SKUs loaded</div>' : '<div style="color:var(--warning);font-size:11px;margin-top:3px">⚠ Not loaded yet</div>'}
+            </div>
+          </label>
+          <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;padding:10px;border:1px solid var(--border);border-radius:6px;font-size:12px">
+            <input type="radio" name="itype" value="capref" style="margin-top:2px">
+            <div>
+              <div style="font-weight:bold;color:var(--text)">Location Capacity Reference</div>
+              <div style="color:var(--text2);font-size:11px">Max pallet capacity per location (Col F: Location, Col H: Capacity)</div>
+              ${capLoaded ? '<div style="color:var(--accent2);font-size:11px;margin-top:3px">✓ '+Object.keys(state.capacityRef).length+' locations loaded</div>' : '<div style="color:var(--warning);font-size:11px;margin-top:3px">⚠ Not loaded yet</div>'}
+            </div>
+          </label>
+        </div>
+        <div class="modal-actions">
+          <button class="btn" onclick="closeModal()">Cancel</button>
+          <button class="btn btn-primary" onclick="triggerImport()">Choose File →</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function triggerImport() {
+  const mode = document.querySelector('input[name="itype"]:checked').value;
+  closeModal();
+  if (mode==='inv') document.getElementById('inv-import-input').click();
+  else if (mode==='qty') document.getElementById('qty-import-input').click();
+  else document.getElementById('cap-ref-input').click();
+}
+
+function handleCapRefImport(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    try {
+      const wb = XLSX.read(ev.target.result, { type:'binary', cellDates:true });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:null });
+      if (!rows.length) { showAlert('Empty file.','danger'); return; }
+      let hi = 0;
+      for (let i=0;i<Math.min(5,rows.length);i++) {
+        if (rows[i].some(c=>typeof c==='string'&&c.toLowerCase().includes('location'))) { hi=i; break; }
+      }
+      const hdr = rows[hi];
+      let locI = hdr.findIndex(h=>typeof h==='string'&&h.toLowerCase().trim().includes('location'));
+      let capI = hdr.findIndex(h=>typeof h==='string'&&h.toLowerCase().includes('tot')&&h.toLowerCase().includes('cap'));
+      if (capI<0) capI = hdr.findIndex(h=>typeof h==='string'&&h.toLowerCase().includes('cap'));
+      if (locI<0) locI=5; if (capI<0) capI=7;
+      const ref = {}; let loaded=0;
+      for (let i=hi+1;i<rows.length;i++) {
+        const loc = (rows[i][locI]||'').toString().trim();
+        let cap = parseFloat(rows[i][capI]);
+        if (isNaN(cap)) { for(let c=rows[i].length-1;c>=0;c--){const v=parseFloat(rows[i][c]);if(!isNaN(v)&&v>0){cap=v;break;}} }
+        if (loc && !isNaN(cap) && cap>0) { ref[loc]=cap; loaded++; }
+      }
+      if (!loaded) { showAlert('No valid rows found. Check file format.','warning'); return; }
+      state.capacityRef = ref;
+      if (db) db.ref('capacityRef').set(ref).then(()=>{ showAlert('✓ '+loaded+' locations loaded.','success'); closeModal(); }).catch(e=>showAlert('Save error: '+e.message,'danger'));
+      else { showAlert('✓ '+loaded+' locations loaded (offline).','success'); closeModal(); }
+    } catch(err) { showAlert('Import error: '+err.message,'danger'); }
+  };
+  reader.readAsBinaryString(file);
+  e.target.value='';
+}
+
+// ─── LOCATION CAPACITY ────────────────────────────────────────────────────────
+function showCapacity() {
+  const locMap = {};
+  // Seed all capacity-ref locations first (ensures empty locations show)
+  Object.keys(state.capacityRef).forEach(loc => {
+    locMap[loc] = { location:loc, utl:0, skus:[], maxCap:state.capacityRef[loc]||0 };
+  });
+  // Fill from rawInventory
+  state.rawInventory.forEach(r => {
+    if (!r.location) return;
+    if (!locMap[r.location]) locMap[r.location] = { location:r.location, utl:0, skus:[], maxCap:state.capacityRef[r.location]||0 };
+    const pq = state.qtyGuide[r.sku];
+    const pal = pq ? (r.pcs||0)/pq : 0;
+    locMap[r.location].utl += pal;
+    let sk = locMap[r.location].skus.find(s=>s.sku===r.sku);
+    if (!sk) { sk={sku:r.sku,pal:0,pcs:0,expDates:[]}; locMap[r.location].skus.push(sk); }
+    sk.pal += pal;
+    sk.pcs += r.pcs||0;
+    if (r.expDate) sk.expDates.push(new Date(r.expDate));
+  });
+
+  const locs = Object.values(locMap);
+  const hasRef = Object.keys(state.capacityRef).length > 0;
+  const totMaxCap = locs.reduce((s,l)=>s+(l.maxCap||0),0);
+  const totUtl = locs.reduce((s,l)=>s+l.utl,0);
+  const totAvail = Math.max(0,totMaxCap-totUtl);
+  const pctCap = totMaxCap>0 ? Math.round(totUtl/totMaxCap*100) : null;
+
+  const fi = 'background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--text);font-family:var(--font);font-size:11px;outline:none;width:100%';
+
+  let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+    <div style="font-size:13px;font-weight:bold;letter-spacing:2px;color:var(--text)">📦 LOCATION CAPACITY</div>
+    <div style="display:flex;gap:8px">
+      ${!hasRef?'<span style="font-size:11px;color:var(--warning);padding:4px 10px;background:rgba(251,191,36,0.1);border-radius:4px;border:1px solid rgba(251,191,36,0.3)">⚠ Import Capacity Reference for Max Cap data</span>':''}
+      <button class="btn btn-sm" onclick="exportCapacityExcel()">⬇ Export Excel</button>
+    </div>
+  </div>`;
+
+  if (hasRef) {
+    const pctColor = pctCap>=90?'#e74c3c':pctCap>=70?'#e67e22':pctCap>=50?'#f1c40f':'#27ae60';
+    html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 20px;margin-bottom:20px;display:grid;grid-template-columns:repeat(6,1fr);gap:8px;text-align:center">
+      <div><div style="font-size:9px;color:var(--text2);letter-spacing:1px;margin-bottom:4px">TOTAL LOCATIONS</div><div style="font-size:24px;font-weight:bold;color:var(--text)">${locs.length.toLocaleString()}</div></div>
+      <div><div style="font-size:9px;color:var(--text2);letter-spacing:1px;margin-bottom:4px">TOT PALLETS</div><div style="font-size:24px;font-weight:bold;color:var(--accent)">${Math.round(totUtl).toLocaleString()}</div></div>
+      <div><div style="font-size:9px;color:var(--text2);letter-spacing:1px;margin-bottom:4px">TOT MAX CAP</div><div style="font-size:24px;font-weight:bold;color:var(--text)">${Math.round(totMaxCap).toLocaleString()}</div></div>
+      <div><div style="font-size:9px;color:var(--text2);letter-spacing:1px;margin-bottom:4px">TOT UTILIZ CAP</div><div style="font-size:24px;font-weight:bold;color:var(--warning)">${Math.round(totUtl).toLocaleString()}</div></div>
+      <div><div style="font-size:9px;color:var(--text2);letter-spacing:1px;margin-bottom:4px">TOT AVAIL CAP</div><div style="font-size:24px;font-weight:bold;color:var(--accent2)">${Math.round(totAvail).toLocaleString()}</div></div>
+      <div><div style="font-size:9px;color:var(--text2);letter-spacing:1px;margin-bottom:4px">% OF CAP</div><div style="font-size:24px;font-weight:bold;color:${pctColor}">${pctCap}%</div></div>
+    </div>`;
+  } else {
+    html += `<div class="stats-grid" style="margin-bottom:20px">
+      <div class="stat-card"><div class="stat-label">LOCATIONS</div><div class="stat-value">${locs.length}</div></div>
+      <div class="stat-card"><div class="stat-label">TOTAL PALLETS</div><div class="stat-value yellow">${Math.round(totUtl)}</div></div>
+      <div class="stat-card"><div class="stat-label">INVENTORY RECORDS</div><div class="stat-value green">${state.rawInventory.length.toLocaleString()}</div></div>
+    </div>`;
+  }
+
+  html += `<div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-bottom:12px;align-items:flex-end">
+    <div class="form-group" style="margin:0"><label>FILTER LOCATION</label><input type="text" id="cap-filter-loc" placeholder="Location..." oninput="renderCapTable()" style="${fi}"></div>
+    <div class="form-group" style="margin:0"><label>FILTER SKU</label><input type="text" id="cap-filter-sku" placeholder="SKU..." oninput="renderCapTable()" style="${fi}"></div>
+    <button class="btn btn-sm" onclick="document.getElementById('cap-filter-loc').value='';document.getElementById('cap-filter-sku').value='';renderCapTable()">✕ Clear</button>
+  </div>
+  <div id="cap-table-wrap"></div>`;
+
+  document.getElementById('main-panel').innerHTML = html;
+  window._capLocMap = locMap;
+  window._capHasRef = hasRef;
+  renderCapTable();
+}
+
+function utlColor(pct) {
+  if (pct>=100) return '#e03e3e';
+  if (pct>=90)  return '#e03e3e';
+  if (pct>=70)  return '#d97706';
+  if (pct>=50)  return '#d97706';
+  if (pct>=25)  return '#1a9e7a';
+  if (pct>0)    return '#1a9e7a';
+  return '#d0d7e8';
+}
+
+function renderCapTable() {
+  const locMap = window._capLocMap||{};
+  const hasRef = window._capHasRef;
+  const locF = (document.getElementById('cap-filter-loc')||{}).value||'';
+  const skuF = (document.getElementById('cap-filter-sku')||{}).value||'';
+  let locs = Object.values(locMap).sort((a,b)=>a.location.localeCompare(b.location));
+  if (locF) locs = locs.filter(l=>l.location.toLowerCase().includes(locF.toLowerCase()));
+  if (skuF) locs = locs.filter(l=>l.skus.some(s=>s.sku.toLowerCase().includes(skuF.toLowerCase())));
+
+  if (!locs.length) { document.getElementById('cap-table-wrap').innerHTML='<div style="padding:20px;text-align:center;color:var(--text2)">No locations match filters.</div>'; return; }
+
+  const sth = 'position:sticky;top:0;z-index:2;background:var(--surface);border-bottom:2px solid var(--border);padding:8px 10px;font-size:10px;letter-spacing:1px;color:var(--text2);white-space:nowrap;';
+  let t = `<div class="cap-table-wrap"><table class="cap-table"><thead><tr>
+    <th style="${sth}">LOCATION</th>`;
+  if (hasRef) t += `<th style="${sth}text-align:right">MAX CAP</th><th style="${sth}text-align:right">UTL</th><th style="${sth}text-align:right">AVAIL CAP</th><th style="${sth}text-align:center;min-width:80px">% OF UTL</th>`;
+  else t += `<th style="${sth}text-align:right">UTL PALLETS</th>`;
+  t += `<th style="${sth}">SKU</th><th style="${sth}text-align:right">PAL</th><th style="${sth}text-align:right">PCS</th><th style="${sth}">PROD ID</th><th style="${sth}">EXP DATES</th></tr></thead><tbody>`;
+
+  locs.forEach(loc => {
+    const utl = Math.round(loc.utl*10)/10;
+    const maxCap = loc.maxCap||0;
+    const avail = Math.max(0, maxCap-utl);
+    const pct = maxCap>0 ? Math.round(utl/maxCap*100) : null;
+    const pctColor = pct!==null ? utlColor(pct) : 'var(--text2)';
+    const pctBg = pct!==null ? pctColor+'22' : '';
+    const skus = [...loc.skus].sort((a,b)=>b.pal-a.pal);
+
+    if (skus.length===0) {
+      t += `<tr>
+        <td style="font-weight:bold;color:var(--accent)">${loc.location}</td>
+        ${hasRef?`<td style="text-align:right">${maxCap}</td><td style="text-align:right">0</td><td style="text-align:right;color:var(--accent2)">${maxCap}</td><td style="text-align:center;background:${pctBg}"><span style="color:${pctColor};font-weight:bold;font-size:15px">0%</span></td>`:`<td style="text-align:right">0</td>`}
+        <td colspan="5" style="color:var(--text2);font-style:italic">Empty</td>
+      </tr>`;
+      return;
+    }
+
+    skus.forEach((s,si) => {
+      const expStr = s.expDates.sort((a,b)=>a-b).slice(0,3).map(d=>d.toLocaleDateString()).join('  ');
+      const name = state.skuNames[s.sku]||'';
+      const palStr = Math.round(s.pal*10)/10;
+      t += `<tr>
+        ${si===0?`<td rowspan="${skus.length}" style="font-weight:bold;color:var(--accent);vertical-align:top">${loc.location}</td>`:''}
+        ${si===0&&hasRef?`<td rowspan="${skus.length}" style="text-align:right;vertical-align:top">${maxCap}</td><td rowspan="${skus.length}" style="text-align:right;font-weight:bold;vertical-align:top">${utl}</td><td rowspan="${skus.length}" style="text-align:right;color:var(--accent2);font-weight:bold;vertical-align:top">${Math.round(avail)}</td><td rowspan="${skus.length}" style="text-align:center;background:${pctBg};vertical-align:middle;padding:10px"><span style="color:${pctColor};font-weight:bold;font-size:16px">${pct!==null?pct+'%':'—'}</span></td>`:si===0&&!hasRef?`<td rowspan="${skus.length}" style="text-align:right;font-weight:bold;vertical-align:top">${utl}</td>`:''}
+        <td style="color:var(--accent);font-weight:bold">${s.sku}</td>
+        <td style="text-align:right;color:var(--accent2);font-weight:bold">${palStr}</td>
+        <td style="text-align:right;color:var(--text2)">${Math.round(s.pcs||0).toLocaleString()}</td>
+        <td style="font-size:10px;color:var(--text2)">${name}</td>
+        <td style="font-size:10px;color:var(--text2)">${expStr}</td>
+      </tr>`;
+    });
+  });
+
+  t += `</tbody></table></div><div style="font-size:11px;color:var(--text2);margin-top:8px;text-align:right">${locs.length} locations shown</div>`;
+  document.getElementById('cap-table-wrap').innerHTML = t;
+}
+
+function exportCapacityExcel() {
+  const locMap = window._capLocMap||{};
+  const hasRef = window._capHasRef;
+  const locs = Object.values(locMap).sort((a,b)=>a.location.localeCompare(b.location));
+  const totMaxCap = locs.reduce((s,l)=>s+(l.maxCap||0),0);
+  const totUtl = locs.reduce((s,l)=>s+l.utl,0);
+  const pctCap = totMaxCap>0?Math.round(totUtl/totMaxCap*100):null;
+  const wb = XLSX.utils.book_new();
+  const summary = [['','','Tot_Plts'],['','',Math.round(totUtl)],[],
+    ['Tot_Max_Cap','Tot_Utiliz_Cap','Tot_Avail_Cap','% Of_Cap'],
+    [Math.round(totMaxCap),Math.round(totUtl),Math.round(Math.max(0,totMaxCap-totUtl)),pctCap!==null?pctCap/100:null],[],
+    hasRef?['Location_name','Max Cap','Utl','Avail Cap','% of Utl','SKU','Prod ID','Exp Dates','SKU Breakdown']:['Location_name','Utl','SKU','Prod ID','Exp Dates']];
+  locs.forEach(loc => {
+    const utl = Math.round(loc.utl*10)/10;
+    const maxCap = loc.maxCap||0;
+    const avail = Math.max(0,maxCap-utl);
+    const pct = maxCap>0?utl/maxCap:null;
+    const skus = [...loc.skus].sort((a,b)=>b.pal-a.pal);
+    const breakdown = skus.length>1?skus.map(s=>s.sku+':'+Math.round(s.pal*10)/10).join(', '):'';
+    if (skus.length===0) {
+      summary.push(hasRef?[loc.location,maxCap,0,maxCap,0,'','','','']:[loc.location,0,'','','']);
+    } else {
+      skus.forEach((s,si) => {
+        const expStr = s.expDates.sort((a,b)=>a-b).slice(0,3).map(d=>d.toLocaleDateString()).join(', ');
+        const name = state.skuNames[s.sku]||'';
+        summary.push(hasRef?[si===0?loc.location:'',si===0?maxCap:'',si===0?utl:'',si===0?Math.round(avail):'',si===0?pct:'',s.sku,name,expStr,si===0?breakdown:'']:[si===0?loc.location:'',si===0?utl:'',s.sku,name,expStr]);
+      });
+    }
+  });
+  const ws = XLSX.utils.aoa_to_sheet(summary);
+  if (hasRef) ws['!cols']=[{wch:20},{wch:10},{wch:10},{wch:12},{wch:10},{wch:12},{wch:28},{wch:28},{wch:30}];
+  else ws['!cols']=[{wch:20},{wch:10},{wch:12},{wch:28},{wch:28}];
+  XLSX.utils.book_append_sheet(wb, ws, 'Location Capacity');
+  XLSX.writeFile(wb,'LocationCapacity_6049_'+new Date().toISOString().slice(0,10)+'.xlsx');
+  showAlert('✓ Exported.','success');
+}
+
+// ─── CYCLE COUNT ──────────────────────────────────────────────────────────────
+
+function showCycleCountStart() {
+  const locs = [...new Set(state.rawInventory.map(r=>r.location).filter(Boolean))].sort();
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  const monthEnd   = new Date(now.getFullYear(), now.getMonth()+1, 0, 23,59,59).getTime();
+  const monthName  = now.toLocaleDateString('en-US',{month:'long',year:'numeric'});
+  const todayStr   = now.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+  const fi = 'background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--text);font-family:var(--font);font-size:13px;outline:none;width:100%';
+
+  let html = `
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+      <div>
+        <div style="font-size:18px;font-weight:bold;letter-spacing:2px;color:var(--text)">🔢 CYCLE COUNT</div>
+        <div style="font-size:13px;color:var(--accent2);font-weight:bold;margin-top:4px">${todayStr}</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:2px">Goal: count all locations within <strong style="color:var(--accent)">${monthName}</strong></div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 340px;gap:20px;align-items:start">
+      <div>
+        <div style="font-size:11px;color:var(--text2);letter-spacing:1px;margin-bottom:10px;font-weight:bold">SELECT LOCATIONS TO COUNT</div>
+        <div class="form-group" style="margin-bottom:10px">
+          <input type="text" id="cc-loc-search" placeholder="Filter locations..." oninput="filterCCLocs()" style="${fi}">
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <button class="btn btn-sm" onclick="document.querySelectorAll('.cc-loc-chk').forEach(c=>c.checked=true)">Select All</button>
+          <button class="btn btn-sm" onclick="document.querySelectorAll('.cc-loc-chk').forEach(c=>c.checked=false)">Clear All</button>
+          <span id="cc-sel-count" style="font-size:12px;color:var(--text2);padding:5px 8px">0 selected</span>
+        </div>
+
+        <!-- Month progress bar -->
+        <div id="cc-month-progress" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:12px">
+          Loading month progress...
+        </div>
+
+        <div class="cc-loc-list" id="cc-loc-list" style="max-height:420px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:6px">
+          <div style="text-align:center;color:var(--text2);padding:16px;font-size:13px">Loading locations...</div>
+        </div>
+        <button class="btn btn-primary" style="width:100%;margin-top:12px;font-size:14px;padding:12px" onclick="startCycleCount()">Start Count →</button>
+      </div>
+
+      <div>
+        <div style="font-size:11px;color:var(--text2);letter-spacing:1px;margin-bottom:10px;font-weight:bold">RECENT COUNTS</div>
+        <div id="cc-inline-history">Loading...</div>
+      </div>
+    </div>`;
+
+  document.getElementById('main-panel').innerHTML = html;
+  window._ccAllLocs = locs;
+
+  // Load session history to build month count map, then render locations
+  if (db) {
+    db.ref('cycleCount6049').orderByChild('createdAt').once('value', snap => {
+      const data = snap.val() || {};
+      const sessions = Object.values(data);
+
+      // Build map: location → count of sessions this month
+      const monthCountMap = {};
+      sessions.forEach(s => {
+        if (!s.createdAt || s.createdAt < monthStart || s.createdAt > monthEnd) return;
+        (s.locations||[]).forEach(loc => {
+          monthCountMap[loc] = (monthCountMap[loc]||0) + 1;
+        });
+      });
+      window._ccMonthCountMap = monthCountMap;
+
+      // Month progress
+      const counted = locs.filter(l=>monthCountMap[l]>0).length;
+      const pct = locs.length>0 ? Math.round(counted/locs.length*100) : 0;
+      const pctColor = pct>=100?'var(--accent2)':pct>=50?'var(--warning)':'var(--danger)';
+      const progressEl = document.getElementById('cc-month-progress');
+      if (progressEl) progressEl.innerHTML = `
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+          <span style="font-weight:bold;color:var(--text)">${monthName} Progress</span>
+          <span style="font-weight:bold;color:${pctColor}">${counted} / ${locs.length} locations &nbsp; ${pct}%</span>
+        </div>
+        <div style="background:var(--border);border-radius:4px;height:8px;overflow:hidden">
+          <div style="width:${pct}%;background:${pctColor};height:100%;border-radius:4px;transition:width 0.4s"></div>
+        </div>`;
+
+      // Render location list with month counts
+      renderCCLocList(locs, monthCountMap);
+
+      // Recent counts sidebar
+      const recent = sessions.sort((a,b)=>b.createdAt-a.createdAt).slice(0,10);
+      const histEl = document.getElementById('cc-inline-history');
+      if (histEl) {
+        if (!recent.length) {
+          histEl.innerHTML = '<div style="font-size:12px;color:var(--text2)">No cycle counts yet.</div>';
+        } else {
+          histEl.innerHTML = recent.map(s=>`
+            <div style="padding:9px 8px;border:1px solid var(--border);border-radius:6px;margin-bottom:6px;cursor:pointer;font-size:12px" onclick="viewCCSession('${s.id}')">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:4px">
+                <span style="font-weight:bold;color:var(--accent)">${s.id}</span>
+                ${isAdmin()?`<button onclick="event.stopPropagation();confirmDeleteSession('${s.id}')" title="Delete" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:13px;padding:0">✕</button>`:''}
+              </div>
+              <div style="color:var(--text2);font-size:11px">${new Date(s.createdAt).toLocaleString()} · ${s.countedBy}</div>
+              <div style="color:var(--text2);font-size:11px">${(s.locations||[]).length} locations${s.adjustments&&s.adjustments.length?` · <span style="color:var(--accent2)">Adjusted</span>`:''}</div>
+            </div>`).join('');
+        }
+      }
+    });
+  } else {
+    renderCCLocList(locs, {});
+  }
+}
+
+function renderCCLocList(locs, monthCountMap) {
+  const listEl = document.getElementById('cc-loc-list');
+  if (!listEl) return;
+  if (!locs.length) { listEl.innerHTML='<div style="text-align:center;color:var(--text2);padding:16px">No locations found in inventory.</div>'; return; }
+
+  listEl.innerHTML = locs.map(l => {
+    const cnt = state.rawInventory.filter(r=>r.location===l&&(r.pcsPending||0)===0).length;
+    const picked = state.rawInventory.filter(r=>r.location===l&&(r.pcsPending||0)>0).length;
+    const monthCount = monthCountMap[l]||0;
+    const countedBadge = monthCount>0
+      ? `<span style="background:rgba(26,158,122,0.15);color:var(--accent2);border-radius:10px;padding:1px 8px;font-size:11px;font-weight:bold">✓ ${monthCount}x this month</span>`
+      : `<span style="background:rgba(224,62,62,0.1);color:var(--danger);border-radius:10px;padding:1px 8px;font-size:11px">Not counted</span>`;
+    return `<label class="cc-loc-item" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border)" onmouseover="this.style.background='rgba(79,110,247,0.07)'" onmouseout="this.style.background=''">
+      <input type="checkbox" class="cc-loc-chk" value="${l}" onchange="updateCCSelCount()" style="cursor:pointer;width:16px;height:16px">
+      <span style="font-weight:bold;color:var(--accent);min-width:80px">${l}</span>
+      <span style="color:var(--accent2);font-size:12px">${cnt} avail</span>
+      ${picked?`<span style="color:var(--warning);font-size:12px">${picked} picked</span>`:''}
+      <span style="margin-left:auto">${countedBadge}</span>
+    </label>`;
+  }).join('');
+}
+
+function updateCCSelCount() {
+  const n = document.querySelectorAll('.cc-loc-chk:checked').length;
+  const el = document.getElementById('cc-sel-count');
+  if (el) el.textContent = n + ' selected';
+}
+
+function filterCCLocs() {
+  const q = (document.getElementById('cc-loc-search')||{}).value||'';
+  document.querySelectorAll('.cc-loc-chk').forEach(chk=>{
+    const row = chk.closest('label');
+    if (row) row.style.display = chk.value.toLowerCase().includes(q.toLowerCase()) ? '' : 'none';
+  });
+}
+
+
+
+function loadCCHistory(inline=false) {
+  const targetId = inline ? 'cc-inline-history' : 'cc-history-list';
+  const el = document.getElementById(targetId);
+  if (!el) return;
+  if (!db) { el.innerHTML='<div style="font-size:12px;color:var(--text2);padding:8px 4px">No history (offline)</div>'; return; }
+  db.ref('cycleCount6049').orderByChild('createdAt').limitToLast(10).once('value', snap => {
+    const data = snap.val();
+    if (!data) { el.innerHTML='<div style="font-size:12px;color:var(--text2);padding:8px 4px">No cycle counts yet.</div>'; return; }
+    const sessions = Object.values(data).sort((a,b)=>b.createdAt-a.createdAt);
+    el.innerHTML = sessions.map(s=>`
+      <div style="padding:9px 8px;border:1px solid var(--border);border-radius:6px;margin-bottom:6px;font-size:12px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:4px">
+          <span style="font-weight:bold;color:var(--accent);cursor:pointer" onclick="viewCCSession('${s.id}')">${s.id}</span>
+          ${isAdmin()?`<button onclick="confirmDeleteSession('${s.id}')" title="Delete" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:13px;padding:0">✕</button>`:''}
+        </div>
+        <div style="color:var(--text2);font-size:11px;cursor:pointer" onclick="viewCCSession('${s.id}')">${new Date(s.createdAt).toLocaleString()} · ${s.countedBy}</div>
+        <div style="color:var(--text2);font-size:11px">${(s.locations||[]).length} locations${s.adjustments&&s.adjustments.length?` · <span style="color:var(--accent2)">Adjusted</span>`:''}</div>
+      </div>`).join('');
+  });
+}
+
+
+
+function startCycleCount() {
+  const selected = [...document.querySelectorAll('.cc-loc-chk:checked')].map(c=>c.value);
+  if (!selected.length) { showAlert('Select at least one location.','warning'); return; }
+
+  // Build per-location skid detail (excluding picked)
+  const locData = {};
+  selected.forEach(loc => { locData[loc] = []; });
+  state.rawInventory.forEach(r => {
+    if (!selected.includes(r.location)) return;
+    if ((r.pcsPending||0) > 0) return;
+    locData[r.location].push(r);
+  });
+
+  // Build entries grouped by loc+sku
+  const entries = [];
+  selected.forEach(loc => {
+    const rows = locData[loc].sort((a,b)=>(a.sku||'').localeCompare(b.sku||''));
+    const skuGroups = {};
+    rows.forEach(r=>{ if(!skuGroups[r.sku]) skuGroups[r.sku]={sku:r.sku,rows:[],totalPcs:0,totalPlt:0}; skuGroups[r.sku].rows.push(r); skuGroups[r.sku].totalPcs+=r.pcs||0; skuGroups[r.sku].totalPlt++; });
+    if (Object.keys(skuGroups).length===0) {
+      entries.push({ loc, sku:'', expectedPcs:0, expectedPlt:0, rows:[], empty:true });
+    } else {
+      Object.values(skuGroups).forEach(sg => entries.push({ loc, sku:sg.sku, expectedPcs:sg.totalPcs, expectedPlt:sg.totalPlt, rows:sg.rows, empty:false }));
+    }
+  });
+
+  window._ccEntries = entries;
+  window._ccLocations = selected;
+  window._ccLocData = locData;
+
+  // Show count sheet preview — no input needed, just confirm and save
+  let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+    <div style="font-size:13px;font-weight:bold;letter-spacing:2px">🔢 COUNT SHEET PREVIEW</div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-sm" onclick="showCycleCountStart()">← Back</button>
+      <button class="btn btn-primary btn-sm" onclick="saveCycleCount()">💾 Save & Export</button>
+    </div>
+  </div>
+  <div class="alert alert-info" style="margin-bottom:12px">
+    Review the count sheet below. Click <strong>Save &amp; Export</strong> to save this session and download the Word document to take to the floor. You can re-open this session later to enter adjustments after the physical count.
+  </div>`;
+
+  selected.forEach(loc => {
+    const locEntries = entries.filter(e=>e.loc===loc);
+    const locPlt = locEntries.reduce((s,e)=>s+(e.expectedPlt||0),0);
+    const locPcs = locEntries.reduce((s,e)=>s+(e.expectedPcs||0),0);
+
+    html += `<div style="margin-bottom:20px;border:1px solid var(--border);border-radius:8px;overflow:hidden">
+      <div style="background:var(--surface);padding:8px 14px;border-bottom:1px solid var(--border)">
+        <span style="font-size:13px;font-weight:bold;color:var(--accent)">📍 ${loc}</span>
+        <span style="font-size:11px;color:var(--text2);margin-left:16px">${locPlt} pallets &nbsp;·&nbsp; ${locPcs.toLocaleString()} pcs</span>
+      </div>
+      <div style="overflow-x:auto">
+      <table class="data-table" style="font-size:11px;margin:0"><thead><tr>
+        <th>SKU</th><th>PRODUCT ID</th><th>PO #</th><th>LOT #</th><th>SKID ID</th>
+        <th style="text-align:center">PLT</th><th style="text-align:right">PCS</th><th>COUNT NOTES</th>
+      </tr></thead><tbody>`;
+
+    if (locEntries.length===0 || locEntries[0].empty) {
+      html += '<tr><td colspan="8" style="text-align:center;color:var(--text2);font-style:italic;padding:10px">No available inventory</td></tr>';
+    } else {
+      locEntries.forEach(e => {
+        (e.rows||[]).forEach(r => {
+          html += `<tr>
+            <td style="color:var(--accent);font-weight:bold">${r.sku||''}</td>
+            <td style="font-size:10px;color:var(--text2)">${state.skuNames[r.sku]||r.sku||''}</td>
+            <td style="font-size:10px">${r.po||''}</td>
+            <td style="font-size:10px">${r.lot||''}</td>
+            <td style="font-size:10px">${r.skid||''}</td>
+            <td style="text-align:center">1</td>
+            <td style="text-align:right">${(r.pcs||0).toLocaleString()}</td>
+            <td style="color:var(--text2);font-size:10px">___________________</td>
+          </tr>`;
+        });
+        html += `<tr style="background:var(--surface);font-weight:bold">
+          <td colspan="4" style="color:var(--text2);font-size:10px">${e.sku} Total</td><td></td>
+          <td style="text-align:center;color:var(--accent2)">${e.expectedPlt}</td>
+          <td style="text-align:right;color:var(--accent2)">${e.expectedPcs.toLocaleString()}</td><td></td>
+        </tr>`;
+      });
+    }
+    html += `<tr style="background:var(--surface2);font-weight:bold">
+      <td colspan="4">Grand Total</td><td></td>
+      <td style="text-align:center;color:var(--accent)">${locPlt}</td>
+      <td style="text-align:right;color:var(--accent)">${locPcs.toLocaleString()}</td><td></td>
+    </tr>`;
+    html += '</tbody></table></div></div>';
+  });
+
+  document.getElementById('main-panel').innerHTML = html;
+}
+
+function updateVar(idx) { /* legacy — kept for compatibility */ }
+
+function saveCycleCount() {
+  const entries = (window._ccEntries||[]).map(e=>({
+    ...e,
+    rows: e.rows.map(r=>({sku:r.sku, productId:state.skuNames[r.sku]||r.sku, po:r.po||'', lot:r.lot||'', skid:r.skid||'', pcs:r.pcs||0}))
+  }));
+  const id = 'CC-'+new Date().toLocaleDateString('en-US',{month:'2-digit',day:'2-digit',year:'2-digit'}).replace(/\//g,'')+'-'+Date.now().toString().slice(-4);
+  const session = { id, createdAt:Date.now(), status:'pending', countedBy:state.currentUser?state.currentUser.name:'Unknown', locations:window._ccLocations||[], entries, adjustments:[] };
+  if (db) db.ref('cycleCount6049/'+id).set(session).catch(()=>{});
+  window._ccLastSession = session;
+  loadCCHistory();
+  exportCCWord(); // auto-download the floor sheet
+  showCCReport(session);
+}
+
+function viewCCSession(id) {
+  if (!db) return;
+  db.ref('cycleCount6049/'+id).once('value', snap=>{ const s=snap.val(); if(s) showCCReport(s); });
+}
+
+
+function showCCReport(session) {
+  const adjs = session.adjustments||[];
+  const getAdj = (loc,sku) => adjs.find(a=>a.loc===loc&&a.sku===sku);
+
+  let totExpPlt=0, totExpPcs=0, totActPlt=0, totActPcs=0;
+  session.entries.forEach(e => {
+    const a = getAdj(e.loc, e.sku);
+    const adjAdd2 = a?(a.adjAdd||0):0, adjMiss2 = a?(a.adjMiss||0):0;
+    const adjPlt = adjAdd2 - adjMiss2;
+    const pcsPerPlt = e.expectedPlt>0 ? e.expectedPcs/e.expectedPlt : 0;
+    totExpPlt += e.expectedPlt||0; totExpPcs += e.expectedPcs||0;
+    totActPlt += (e.expectedPlt||0) + adjPlt;
+    totActPcs += Math.round((e.expectedPcs||0) + adjPlt*pcsPerPlt);
+  });
+  const totVarPlt = totActPlt - totExpPlt;
+  const hasAdj = adjs.length > 0;
+  const skuLines7 = session.entries.filter(e=>!e.empty&&e.sku);
+  const accurateLines7 = skuLines7.filter(e=>{ const a=getAdj(e.loc,e.sku); return ((a?(a.adjAdd||0):0)-(a?(a.adjMiss||0):0))===0; }).length;
+  const totalLines7 = skuLines7.length;
+  const binAcc = totalLines7>0 ? Math.round(accurateLines7/totalLines7*100) : 100;
+  const adjCount = adjs.filter(a=>(a.adjAdd||0)-(a.adjMiss||0)!==0).length;
+
+  let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+    <div>
+      <div style="font-size:14px;font-weight:bold;color:var(--accent);letter-spacing:1px">${session.id}</div>
+      <div style="font-size:11px;color:var(--text2)">${new Date(session.createdAt).toLocaleString()} · By ${session.countedBy}
+        ${hasAdj?` · <span style="color:var(--accent2)">✓ Adjustments entered</span>`:` · <span style="color:var(--warning)">Pending adjustments</span>`}
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-sm" onclick="showCycleCountStart()">← Back</button>
+      <button class="btn btn-sm" onclick="showCCCountSheetView('${session.id}')">📋 Count Sheet</button>
+      <button class="btn btn-primary btn-sm" onclick="showCCAdjustments('${session.id}')">✎ Enter Adjustments</button>
+      <button class="btn btn-sm" onclick="exportCCWord()">⬇ Export Word</button>
+      <button class="btn btn-sm" onclick="window.print()">🖨 Print</button>
+    </div>
+  </div>
+  <div class="stats-grid" style="margin-bottom:20px">
+    <div class="stat-card"><div class="stat-label">LOCATIONS</div><div class="stat-value">${session.locations.length}</div></div>
+    <div class="stat-card"><div class="stat-label">EXPECTED PLT</div><div class="stat-value">${totExpPlt}</div></div>
+    <div class="stat-card"><div class="stat-label">ACTUAL PLT</div><div class="stat-value ${hasAdj?totVarPlt===0?'green':totVarPlt>0?'yellow':'red':''}">${hasAdj?totActPlt:'—'}</div></div>
+    <div class="stat-card"><div class="stat-label">VARIANCE PLT</div><div class="stat-value ${totVarPlt===0?'green':totVarPlt>0?'yellow':'red'}">${hasAdj?(totVarPlt>=0?'+':'')+totVarPlt:'—'}</div></div>
+    <div class="stat-card"><div class="stat-label">BIN ACCURACY</div><div class="stat-value ${binAcc>=100?'green':binAcc>=95?'yellow':'red'}">${accurateLines7}/${totalLines7}<br><span style="font-size:18px">${binAcc}%</span></div></div>
+    <div class="stat-card"><div class="stat-label">VARIANCES</div><div class="stat-value ${adjCount>0?'yellow':'green'}">${adjCount}</div></div>
+  </div>
+
+  <!-- Expand All / Collapse All -->
+  <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:10px">
+    <button class="btn btn-sm" onclick="toggleAllLocSections(true)">▼ Expand All</button>
+    <button class="btn btn-sm" onclick="toggleAllLocSections(false)">▶ Collapse All</button>
+  </div>`;
+
+  // Per-location COLLAPSED summary rows (accordion)
+  session.locations.forEach((loc, li) => {
+    const locEntries = session.entries.filter(e=>e.loc===loc);
+    const locExpPlt = locEntries.reduce((s,e)=>s+(e.expectedPlt||0),0);
+    const locExpPcs = locEntries.reduce((s,e)=>s+(e.expectedPcs||0),0);
+    const locSkus = [...new Set(locEntries.filter(e=>e.sku).map(e=>e.sku))];
+
+    // Compute location-level adjustment totals
+    let locActPlt=locExpPlt, locAdjAdd=0, locAdjMiss=0;
+    locEntries.forEach(e=>{
+      const a=getAdj(e.loc,e.sku);
+      locAdjAdd += a?(a.adjAdd||0):0;
+      locAdjMiss += a?(a.adjMiss||0):0;
+      locActPlt += (a?(a.adjAdd||0):0)-(a?(a.adjMiss||0):0);
+    });
+    const locVarPlt = locActPlt - locExpPlt;
+    const locAccLines = locEntries.filter(e=>{ const a=getAdj(e.loc,e.sku); return ((a?(a.adjAdd||0):0)-(a?(a.adjMiss||0):0))===0; }).length;
+    const locTotalLines = locEntries.filter(e=>!e.empty&&e.sku).length;
+    const locBinAcc = locTotalLines>0?Math.round(locAccLines/locTotalLines*100):100;
+    const varColor = locVarPlt===0?'var(--accent2)':locVarPlt>0?'var(--warning)':'var(--danger)';
+    const accColor = locBinAcc>=100?'var(--accent2)':locBinAcc>=95?'var(--warning)':'var(--danger)';
+    const hasLocAdj = (locAdjAdd+locAdjMiss)>0;
+
+    // Build detail rows (hidden by default)
+    let detailRows = '';
+    if (!locEntries.length || locEntries[0].empty) {
+      detailRows = `<tr><td colspan="${hasAdj?11:8}" style="text-align:center;color:var(--text2);font-style:italic;padding:10px">No available inventory</td></tr>`;
+    } else {
+      locEntries.forEach(e => {
+        const a = getAdj(e.loc, e.sku);
+        const adjAdd3=a?(a.adjAdd||0):0, adjMiss3=a?(a.adjMiss||0):0;
+        const netR = adjAdd3-adjMiss3;
+        const isAccR = netR===0;
+        const actPlt = e.expectedPlt+netR;
+        const pcsPerPlt = e.expectedPlt>0?e.expectedPcs/e.expectedPlt:0;
+        const actPcs = Math.round(e.expectedPcs+netR*pcsPerPlt);
+        const varPcs = actPcs-e.expectedPcs;
+        const vColor = varPcs===0?'var(--accent2)':varPcs>0?'var(--warning)':'var(--danger)';
+        const rowAccColor = isAccR?'var(--accent2)':'var(--danger)';
+
+        (e.rows||[]).forEach((r,ri)=>{
+          detailRows += `<tr style="background:${ri%2===0?'':'var(--surface)'}">
+            <td style="color:var(--accent);font-weight:bold">${r.sku||''}</td>
+            <td style="font-size:10px;color:var(--text2)">${r.productId||''}</td>
+            <td style="font-size:10px">${r.po||''}</td>
+            <td style="font-size:10px">${r.lot||''}</td>
+            <td style="font-size:10px">${r.skid||''}</td>
+            <td style="text-align:center">1</td>
+            <td style="text-align:right">${(r.pcs||0).toLocaleString()}</td>
+            ${hasAdj?'<td></td><td></td><td></td><td></td>':'<td></td>'}
+          </tr>`;
+        });
+        // SKU row with adjustments
+        detailRows += `<tr style="background:var(--surface2);font-weight:bold">
+          <td colspan="4" style="color:var(--text2);font-size:10px">${e.sku} — ${state.skuNames[e.sku]||''}</td>
+          <td></td>
+          <td style="text-align:center;color:var(--accent2)">${e.expectedPlt}</td>
+          <td style="text-align:right;color:var(--accent2)">${e.expectedPcs.toLocaleString()}</td>
+          ${hasAdj?`
+          <td style="text-align:right;color:${netR===0?'var(--text2)':netR>0?'var(--warning)':'var(--danger)'}">${netR===0?'—':(netR>0?'+':'')+netR}</td>
+          <td style="text-align:right;color:var(--accent2)">${actPlt}</td>
+          <td style="text-align:right;font-weight:bold;color:${vColor}">${varPcs!==0?(varPcs>0?'+':'')+varPcs.toLocaleString():'✓'}</td>
+          <td style="font-size:10px;color:${rowAccColor}">${isAccR?'✓ ACCURATE':'✗ VARIANCE'}</td>`:'<td></td>'}
+        </tr>`;
+      });
+    }
+
+    html += `
+    <div style="margin-bottom:8px;border:1px solid var(--border);border-radius:8px;overflow:hidden">
+      <!-- Collapsed header — always visible, click to expand -->
+      <div onclick="toggleLocSection('loc-detail-${li}')" style="cursor:pointer;padding:10px 14px;background:var(--surface);display:grid;grid-template-columns:28px 100px 1fr auto auto auto auto auto;gap:8px;align-items:center;user-select:none"
+           onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='var(--surface)'">
+        <span id="loc-chevron-${li}" style="color:var(--accent2);font-size:13px">▶</span>
+        <span style="font-weight:bold;color:var(--accent);font-size:13px">${loc}</span>
+        <span style="font-size:11px;color:var(--text2)">${locSkus.length} SKU${locSkus.length!==1?'s':''} · ${locExpPlt} exp plt · ${locExpPcs.toLocaleString()} pcs</span>
+        ${hasAdj?`
+        <span style="font-size:11px;font-weight:bold;color:${varColor}">${locVarPlt===0?'—':(locVarPlt>0?'+':'')+locVarPlt} var</span>
+        <span style="font-size:11px;font-weight:bold;color:${varColor}">${hasAdj?locActPlt+' act':'—'}</span>
+        <span style="font-size:11px;font-weight:bold;color:${accColor}">${locBinAcc}% bin</span>
+        <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:${hasLocAdj?'rgba(240,101,101,0.12)':'rgba(26,158,122,0.12)'};color:${hasLocAdj?'var(--danger)':'var(--accent2)'}">${hasLocAdj?'✗ VARIANCE':'✓ ACCURATE'}</span>`
+        :`<span></span><span></span><span></span><span></span>`}
+      </div>
+      <!-- Expandable detail -->
+      <div id="loc-detail-${li}" style="display:none;overflow-x:auto">
+        <table class="data-table" style="font-size:11px;margin:0">
+          <thead><tr>
+            <th>SKU</th><th>PRODUCT ID</th><th>PO #</th><th>LOT #</th><th>SKID ID</th>
+            <th style="text-align:center">PLT</th><th style="text-align:right">PCS</th>
+            ${hasAdj?'<th style="text-align:right;color:var(--warning)">ADJ PLT</th><th style="text-align:right;color:var(--accent2)">ACTUAL PLT</th><th style="text-align:right">VAR PCS</th><th>BIN ACC</th>':'<th>COUNT NOTES</th>'}
+          </tr></thead>
+          <tbody>${detailRows}</tbody>
+        </table>
+      </div>
+    </div>`;
+  });
+
+  document.getElementById('main-panel').innerHTML = html;
+  window._ccLastSession = session;
+}
+
+function toggleLocSection(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const idx = id.replace('loc-detail-','');
+  const chevron = document.getElementById('loc-chevron-'+idx);
+  const open = el.style.display === 'none';
+  el.style.display = open ? 'block' : 'none';
+  if (chevron) chevron.textContent = open ? '▼' : '▶';
+}
+
+function toggleAllLocSections(expand) {
+  document.querySelectorAll('[id^="loc-detail-"]').forEach(el => {
+    const idx = el.id.replace('loc-detail-','');
+    const chevron = document.getElementById('loc-chevron-'+idx);
+    el.style.display = expand ? 'block' : 'none';
+    if (chevron) chevron.textContent = expand ? '▼' : '▶';
+  });
+}
+
+
+
+function showCCCountSheetView(sessionId) {
+  const load = (session) => {
+    let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+      <div>
+        <div style="font-size:14px;font-weight:bold;color:var(--accent);letter-spacing:1px">${session.id} — COUNT SHEET</div>
+        <div style="font-size:11px;color:var(--text2)">${new Date(session.createdAt).toLocaleString()} · By ${session.countedBy} · ${session.locations.length} locations</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-sm" onclick="showCCReport(window._ccLastSession)">← Back to Summary</button>
+        <button class="btn btn-sm" onclick="exportCCWord()">⬇ Export Word</button>
+      </div>
+    </div>`;
+
+    session.locations.forEach(loc => {
+      const locEntries = session.entries.filter(e=>e.loc===loc);
+      const locPlt = locEntries.reduce((s,e)=>s+(e.expectedPlt||0),0);
+      const locPcs = locEntries.reduce((s,e)=>s+(e.expectedPcs||0),0);
+
+      html += `<div style="margin-bottom:24px;border:1px solid var(--border);border-radius:8px;overflow:hidden">
+        <div style="background:var(--surface);padding:8px 14px;border-bottom:1px solid var(--border)">
+          <span style="font-size:13px;font-weight:bold;color:var(--accent)">📍 ${loc}</span>
+          <span style="font-size:11px;color:var(--text2);margin-left:12px">${locPlt} pallets · ${locPcs.toLocaleString()} pcs</span>
+        </div>
+        <div style="overflow-x:auto">
+        <table class="data-table" style="font-size:11px;margin:0">
+          <thead><tr>
+            <th>SKU</th><th>PRODUCT ID</th><th>PO #</th><th>LOT #</th><th>SKID ID</th>
+            <th style="text-align:center">PLT</th><th style="text-align:right">PCS</th><th>COUNT NOTES</th>
+          </tr></thead>
+          <tbody>`;
+
+      if (!locEntries.length || locEntries[0].empty) {
+        html += '<tr><td colspan="8" style="text-align:center;color:var(--text2);font-style:italic;padding:10px">No available inventory</td></tr>';
+      } else {
+        locEntries.forEach(e => {
+          const rows = e.rows||[];
+          if (!rows.length) {
+            html += `<tr>
+              <td style="color:var(--accent);font-weight:bold">${e.sku}</td>
+              <td colspan="5" style="color:var(--text2);font-size:10px">SKU subtotal only — no skid detail</td>
+              <td style="text-align:right">${e.expectedPcs.toLocaleString()}</td><td></td>
+            </tr>`;
+          } else {
+            rows.forEach((r,ri) => {
+              html += `<tr style="background:${ri%2===0?'':'var(--surface)'}">
+                <td style="color:var(--accent);font-weight:bold">${r.sku||''}</td>
+                <td style="font-size:10px;color:var(--text2)">${r.productId||''}</td>
+                <td style="font-size:10px">${r.po||''}</td>
+                <td style="font-size:10px">${r.lot||''}</td>
+                <td style="font-size:10px">${r.skid||''}</td>
+                <td style="text-align:center">1</td>
+                <td style="text-align:right">${(r.pcs||0).toLocaleString()}</td>
+                <td style="color:var(--text2);font-size:10px">___________________</td>
+              </tr>`;
+            });
+          }
+          // SKU subtotal
+          html += `<tr style="background:var(--surface2);font-weight:bold">
+            <td colspan="4" style="color:var(--text2);font-size:10px">${e.sku} Total</td><td></td>
+            <td style="text-align:center;color:var(--accent2)">${e.expectedPlt}</td>
+            <td style="text-align:right;color:var(--accent2)">${e.expectedPcs.toLocaleString()}</td>
+            <td></td>
+          </tr>`;
+        });
+      }
+      html += `<tr style="background:var(--accent);color:#fff;font-weight:bold">
+        <td colspan="4" style="padding:6px 8px">Grand Total</td><td></td>
+        <td style="text-align:center">${locPlt}</td>
+        <td style="text-align:right">${locPcs.toLocaleString()}</td>
+        <td></td>
+      </tr>`;
+      html += `</tbody></table></div></div>`;
+    });
+
+    document.getElementById('main-panel').innerHTML = html;
+    window._ccLastSession = session;
+  };
+
+  if (db) { db.ref('cycleCount6049/'+sessionId).once('value', snap=>{ const s=snap.val(); if(s) load(s); }); }
+  else if (window._ccLastSession) { load(window._ccLastSession); }
+}
+
+function showCCAdjustments(sessionId) {
+  const load = (session) => {
+    const adjs = session.adjustments||[];
+    const getAdj = (loc,sku) => adjs.find(a=>a.loc===loc&&a.sku===sku);
+    const fi = 'width:62px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:4px 6px;color:var(--text);font-family:var(--font);font-size:12px;font-weight:bold;outline:none;text-align:right';
+    const fn = 'width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:4px 8px;color:var(--text);font-family:var(--font);font-size:11px;outline:none';
+
+    // Running totals bar
+    let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+      <div>
+        <div style="font-size:13px;font-weight:bold;letter-spacing:2px">✎ ENTER ADJUSTMENTS</div>
+        <div style="font-size:11px;color:var(--text2)">${session.id} · Both ADD and MISSING are positive entries</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-sm" onclick="showCCReport(window._ccLastSession)">← Back</button>
+        <button class="btn btn-primary btn-sm" onclick="saveAdjustments('${session.id}')">💾 Save Adjustments</button>
+      </div>
+    </div>
+    <div class="alert alert-info" style="margin-bottom:12px">
+      <strong>ADD</strong> = extra pallets found (over expected) &nbsp;·&nbsp; <strong>MISSING</strong> = pallets not found (under expected) &nbsp;·&nbsp; Net = Add − Missing
+    </div>
+
+    <!-- Running totals bar -->
+    <div id="adj-totals-bar" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 16px;margin-bottom:12px;display:grid;grid-template-columns:repeat(7,1fr);gap:8px;text-align:center">
+      <div><div style="font-size:9px;color:var(--text2);letter-spacing:1px">EXP PLT</div><div id="rt-exp" style="font-size:18px;font-weight:bold;color:var(--text)">0</div></div>
+      <div><div style="font-size:9px;color:var(--text2);letter-spacing:1px">TOTAL ADD</div><div id="rt-add" style="font-size:18px;font-weight:bold;color:var(--accent2)">0</div></div>
+      <div><div style="font-size:9px;color:var(--text2);letter-spacing:1px">TOTAL MISSING</div><div id="rt-miss" style="font-size:18px;font-weight:bold;color:var(--danger)">0</div></div>
+      <div><div style="font-size:9px;color:var(--text2);letter-spacing:1px">NET ADJ PLT</div><div id="rt-net" style="font-size:18px;font-weight:bold;color:var(--text2)">0</div></div>
+      <div><div style="font-size:9px;color:var(--text2);letter-spacing:1px">ACTUAL PLT</div><div id="rt-act" style="font-size:18px;font-weight:bold;color:var(--accent)">0</div></div>
+      <div><div style="font-size:9px;color:var(--text2);letter-spacing:1px">BIN ACCURACY</div><div style="font-size:9px;color:var(--text2)"># accurate / # total</div><div id="rt-acc" style="font-size:16px;font-weight:bold;color:var(--accent2)">—</div></div>
+      <div><div style="font-size:9px;color:var(--text2);letter-spacing:1px">COUNT ACCURACY</div><div style="font-size:9px;color:var(--text2)">(1−adj/exp)×100</div><div id="rt-cacc" style="font-size:16px;font-weight:bold;color:var(--accent2)">—</div></div>
+    </div>
+
+    <div style="overflow-x:auto">
+    <table class="cc-entry-table" id="adj-table">
+      <thead><tr>
+        <th>LOCATION</th><th>SKU</th><th>PRODUCT ID</th>
+        <th style="text-align:right">EXP PLT</th>
+        <th style="text-align:right;color:var(--accent2)">ADD ↑</th>
+        <th style="text-align:right;color:var(--danger)">MISSING ↓</th>
+        <th style="text-align:right">NET ADJ</th>
+        <th style="text-align:right">ACTUAL PLT</th>
+        <th style="text-align:center">BIN ACCURACY</th>
+        <th style="text-align:right">COUNT ACCURACY</th>
+        <th>NOTES</th>
+      </tr></thead>
+      <tbody id="adj-tbody">`;
+
+    let idx = 0;
+    session.locations.forEach(loc => {
+      const locEntries = session.entries.filter(e=>e.loc===loc&&!e.empty&&e.sku);
+      if (!locEntries.length) return;
+      locEntries.forEach(e => {
+        const a = getAdj(e.loc, e.sku);
+        const savedAdd = a ? (a.adjAdd||0) : 0;
+        const savedMiss = a ? (a.adjMiss||0) : 0;
+        const savedNotes = a ? (a.notes||'') : '';
+        const net = savedAdd - savedMiss;
+        const actPlt = e.expectedPlt + net;
+        const isAcc = net === 0;
+        const accColor = isAcc ? 'var(--accent2)' : 'var(--danger)';
+        const name = state.skuNames[e.sku]||'';
+        html += `<tr data-loc="${e.loc}" data-sku="${e.sku}" data-expplt="${e.expectedPlt}" data-exppcs="${e.expectedPcs}">
+          <td style="font-weight:bold;color:var(--accent)">${e.loc}</td>
+          <td style="color:var(--accent);font-weight:bold">${e.sku}</td>
+          <td style="font-size:10px;color:var(--text2)">${name}</td>
+          <td style="text-align:right">${e.expectedPlt}</td>
+          <td><input type="number" class="adj-add" data-idx="${idx}" min="0" value="${savedAdd||''}" placeholder="0" oninput="updateAdjRow()" style="${fi};border-color:rgba(26,158,122,0.4)"></td>
+          <td><input type="number" class="adj-miss" data-idx="${idx}" min="0" value="${savedMiss||''}" placeholder="0" oninput="updateAdjRow()" style="${fi};border-color:rgba(224,62,62,0.4)"></td>
+          <td id="adj-net-${idx}" style="text-align:right;font-weight:bold;color:${net===0?'var(--text2)':net>0?'var(--accent2)':'var(--danger)'}">${net===0?'—':(net>0?'+':'')+net}</td>
+          <td id="adj-act-${idx}" style="text-align:right;font-weight:bold;color:var(--accent2)">${actPlt}</td>
+          <td id="adj-acc-${idx}" style="text-align:center;font-weight:bold;color:${accColor}">${isAcc?'✓ ACCURATE':'✗ VARIANCE'}</td>
+          <td id="adj-cacc-${idx}" style="text-align:right;font-weight:bold;color:${e.expectedPlt>0?((1-(savedAdd+savedMiss)/e.expectedPlt)*100)>=100?'var(--accent2)':((1-(savedAdd+savedMiss)/e.expectedPlt)*100)>=50?'var(--warning)':'var(--danger)':'var(--accent2)'}">${e.expectedPlt>0?Math.round((1-(savedAdd+savedMiss)/e.expectedPlt)*100)+'%':'—'}</td>
+          <td><input type="text" class="adj-notes" data-idx="${idx}" value="${savedNotes}" placeholder="Notes..." style="${fn}"></td>
+        </tr>`;
+        idx++;
+      });
+    });
+    html += `</tbody>
+    <tfoot><tr style="background:var(--surface2);font-weight:bold;font-size:12px">
+      <td colspan="3" style="color:var(--text)">GRAND TOTAL</td>
+      <td id="adj-ft-exp" style="text-align:right"></td>
+      <td id="adj-ft-add" style="text-align:right;color:var(--accent2)"></td>
+      <td id="adj-ft-miss" style="text-align:right;color:var(--danger)"></td>
+      <td id="adj-ft-net" style="text-align:right"></td>
+      <td id="adj-ft-act" style="text-align:right;color:var(--accent)"></td>
+      <td id="adj-ft-acc" style="text-align:center;color:var(--accent2)"></td>
+      <td id="adj-ft-cacc" style="text-align:right;color:var(--accent2)"></td>
+      <td></td>
+    </tr></tfoot>
+    </table></div>`;
+
+    document.getElementById('main-panel').innerHTML = html;
+    window._ccLastSession = session;
+    window._ccAdjSession = session;
+    updateAdjRow(); // populate totals on load
+  };
+  if (db) { db.ref('cycleCount6049/'+sessionId).once('value', snap=>{ const s=snap.val(); if(s) load(s); }); }
+  else if (window._ccLastSession) { load(window._ccLastSession); }
+}
+
+function updateAdjRow() {
+  const rows = document.querySelectorAll('#adj-tbody tr');
+  let totExp=0, totAdd=0, totMiss=0, totAct=0;
+  rows.forEach((row, idx) => {
+    const expPlt = parseFloat(row.dataset.expplt)||0;
+    const addEl = row.querySelector('.adj-add');
+    const missEl = row.querySelector('.adj-miss');
+    const adjAdd = addEl ? (parseFloat(addEl.value)||0) : 0;
+    const adjMiss = missEl ? (parseFloat(missEl.value)||0) : 0;
+    const net = adjAdd - adjMiss;
+    const actPlt = expPlt + adjAdd - adjMiss;
+    const isAccurate = net === 0;
+    const accColor = isAccurate ? 'var(--accent2)' : 'var(--danger)';
+    const totalAdj = adjAdd + adjMiss;
+    const countAcc = expPlt>0 ? Math.round((1 - totalAdj/expPlt)*100) : 100;
+    const cAccColor = countAcc>=100?'var(--accent2)':countAcc>=50?'var(--warning)':'var(--danger)';
+    const netEl=document.getElementById('adj-net-'+idx);
+    const actEl=document.getElementById('adj-act-'+idx);
+    const accEl=document.getElementById('adj-acc-'+idx);
+    if(netEl){ netEl.textContent=net===0?'—':(net>0?'+':'')+net; netEl.style.color=net===0?'var(--text2)':net>0?'var(--accent2)':'var(--danger)'; }
+    if(actEl){ actEl.textContent=actPlt; actEl.style.color=actPlt<0?'var(--danger)':'var(--accent2)'; }
+    if(accEl){ accEl.textContent=isAccurate?'✓ ACCURATE':'✗ VARIANCE'; accEl.style.color=accColor; }
+    const caccEl=document.getElementById('adj-cacc-'+idx);
+    if(caccEl){ caccEl.textContent=countAcc+'%'; caccEl.style.color=cAccColor; }
+    totExp+=expPlt; totAdd+=adjAdd; totMiss+=adjMiss; totAct+=actPlt;
+  });
+  const totNet = totAdd-totMiss;
+  // Bin accuracy = accurate lines (net=0) / total lines
+  let accurateLines=0, totalLines=0;
+  document.querySelectorAll('#adj-tbody tr').forEach(row => {
+    const aEl = row.querySelector('.adj-add');
+    const mEl = row.querySelector('.adj-miss');
+    if (!aEl||!mEl) return;
+    totalLines++;
+    const net = (parseFloat(aEl.value)||0) - (parseFloat(mEl.value)||0);
+    if (net===0) accurateLines++;
+  });
+  const totAcc = totalLines>0 ? Math.round(accurateLines/totalLines*100) : 100;
+  const accColor = totAcc>=100?'var(--accent2)':totAcc>=95?'var(--warning)':'var(--danger)';
+  // Running totals bar
+  const set = (id,val,color)=>{ const el=document.getElementById(id); if(el){el.textContent=val;if(color)el.style.color=color;} };
+  set('rt-exp', totExp);
+  set('rt-add', totAdd, 'var(--accent2)');
+  set('rt-miss', totMiss, totMiss>0?'var(--danger)':'var(--text2)');
+  set('rt-net', (totNet>=0?'+':'')+totNet, totNet===0?'var(--text2)':totNet>0?'var(--accent2)':'var(--danger)');
+  set('rt-act', totAct, 'var(--accent)');
+  const accLabel = totalLines>0 ? accurateLines+'/'+totalLines+' ('+totAcc+'%)' : '—';
+  set('rt-acc', accLabel, accColor);
+  // Overall count accuracy = (1 - totalAdj / totExp) * 100
+  const totCountAcc = totExp>0 ? Math.round((1-(totAdd+totMiss)/totExp)*100) : 100;
+  const cAccOverall = totCountAcc>=100?'var(--accent2)':totCountAcc>=50?'var(--warning)':'var(--danger)';
+  set('rt-cacc', totCountAcc+'%', cAccOverall);
+  set('adj-ft-cacc', totCountAcc+'%');
+  // Footer totals
+  set('adj-ft-exp', totExp); set('adj-ft-add', '+'+totAdd); set('adj-ft-miss', '-'+totMiss);
+  set('adj-ft-net', (totNet>=0?'+':'')+totNet); set('adj-ft-act', totAct); set('adj-ft-acc', totAcc+'%');
+}
+
+function saveAdjustments(sessionId) {
+  const rows = document.querySelectorAll('#adj-tbody tr');
+  const adjustments = [];
+  rows.forEach((row, idx) => {
+    const addEl = row.querySelector('.adj-add');
+    const missEl = row.querySelector('.adj-miss');
+    const notesEl = row.querySelector('.adj-notes');
+    const adjAdd = addEl ? (parseFloat(addEl.value)||0) : 0;
+    const adjMiss = missEl ? (parseFloat(missEl.value)||0) : 0;
+    const adjPlt = adjAdd - adjMiss;
+    const notes = notesEl ? notesEl.value.trim() : '';
+    adjustments.push({ loc:row.dataset.loc, sku:row.dataset.sku, adjAdd, adjMiss, adjPlt, notes });
+  });
+  const session = { ...window._ccAdjSession, adjustments, adjustedAt:Date.now(), adjustedBy:state.currentUser?state.currentUser.name:'Unknown' };
+  window._ccLastSession = session;
+  if (db) {
+    db.ref('cycleCount6049/'+sessionId+'/adjustments').set(adjustments).catch(()=>{});
+    db.ref('cycleCount6049/'+sessionId+'/adjustedAt').set(Date.now()).catch(()=>{});
+    db.ref('cycleCount6049/'+sessionId+'/adjustedBy').set(state.currentUser?state.currentUser.name:'Unknown').catch(()=>{});
+  }
+  showAlert('✓ Adjustments saved.','success');
+  loadCCHistory();
+  showCCReport(session);
+}
+
+
+
+
+
+function exportCCWord() {
+  const session = window._ccLastSession; if(!session) return;
+  const adjs = session.adjustments||[];
+  const getAdj = (loc,sku) => adjs.find(a=>a.loc===loc&&a.sku===sku);
+  const hasAdj = adjs.length > 0;
+
+  let locHtml = '';
+
+  session.locations.forEach((loc, li) => {
+    const locEntries = session.entries.filter(e=>e.loc===loc);
+    const locPlt = locEntries.reduce((s,e)=>s+(e.expectedPlt||0),0);
+    const locPcs = locEntries.reduce((s,e)=>s+(e.expectedPcs||0),0);
+    const isEmpty = !locEntries.length || locEntries[0].empty;
+
+    let rows = '';
+    if (isEmpty) {
+      const cols = hasAdj ? 13 : 9;
+      rows = `<tr><td colspan="${cols}" style="text-align:center;color:#5A6484;font-style:italic;padding:14px">No available inventory in this location</td></tr>`;
+    } else {
+      let rowIdx = 0;
+      locEntries.forEach(e => {
+        const a = getAdj(e.loc, e.sku);
+        const adjAdd = a?(a.adjAdd||0):0;
+        const adjMiss = a?(a.adjMiss||0):0;
+        const net = adjAdd - adjMiss;
+        const actPlt = e.expectedPlt + adjAdd - adjMiss;
+        const totalAdjW = adjAdd + adjMiss;
+        const acc = e.expectedPlt>0 ? Math.round((1 - totalAdjW/e.expectedPlt)*100) : 100;
+        const accColor = acc>=100?'#1A9E7A':acc>=90?'#D97706':'#E03E3E';
+        const pcsPerPlt = e.expectedPlt>0 ? e.expectedPcs/e.expectedPlt : 0;
+
+        (e.rows||[]).forEach((r,ri) => {
+          const bg = rowIdx%2===0 ? '#ffffff' : '#eef1f8';
+          rows += `<tr style="background:${bg}">
+            <td class="sku-cell">${r.sku||''}</td>
+            <td class="name-cell">${r.productId||''}</td>
+            <td>${r.po||''}</td>
+            <td>${r.lot||''}</td>
+            <td style="text-align:center;font-size:16pt">&#x2610;</td>
+            <td>${r.skid||''}</td>
+            <td style="text-align:center">1</td>
+            <td style="text-align:right">${(r.pcs||0).toLocaleString()}</td>
+            ${hasAdj?`
+            <td style="text-align:center;color:#1A9E7A">${adjAdd&&ri===0?adjAdd:''}</td>
+            <td style="text-align:center;color:#E03E3E">${adjMiss&&ri===0?adjMiss:''}</td>
+            <td style="text-align:right;color:#1A9E7A;font-weight:bold">${ri===0?actPlt:''}</td>
+            <td style="text-align:right;color:${accColor};font-weight:bold">${ri===0?acc+'%':''}</td>`:''}
+            <td class="notes-cell">___________________________</td>
+          </tr>`;
+          rowIdx++;
+        });
+      });
+    }
+
+    // Grand total
+    rows += `<tr class="grand-total">
+      <td colspan="6">GRAND TOTAL</td>
+      <td style="text-align:center">${locPlt}</td>
+      <td style="text-align:right">${locPcs.toLocaleString()}</td>
+      ${hasAdj?'<td colspan="4"></td>':''}
+      <td></td>
+    </tr>`;
+    // ADD ONS header + 5 blank rows
+    const addOnCols = hasAdj ? 13 : 9;
+    rows += `<tr>
+      <td colspan="${addOnCols}" style="background:#1a1f36;color:#ffffff;font-weight:bold;font-size:9pt;padding:5px 6px;text-align:left;letter-spacing:1px">ADD ONS</td>
+    </tr>`;
+    for (let ai=0; ai<5; ai++) {
+      rows += `<tr style="background:${ai%2===0?'#ffffff':'#f8f9fc'}">
+        <td></td><td></td><td></td><td></td>
+        <td style="text-align:center;font-size:16pt">&#x2610;</td>
+        <td></td><td style="text-align:center"></td><td></td>
+        ${hasAdj?'<td></td><td></td><td></td><td></td>':''}
+        <td></td>
+      </tr>`;
+    }
+
+    locHtml += `
+    <div class="loc-page">
+      <div class="loc-header">&#128205; LOCATION: ${loc}</div>
+      <div class="loc-sub"><strong>Session:</strong> ${session.id} &nbsp;&middot;&nbsp; <strong>Date:</strong> ${new Date(session.createdAt).toLocaleDateString()} &nbsp;&middot;&nbsp; <strong>Counted By:</strong> _______________________</div>
+      <table>
+        <thead>
+          <tr>
+            <th style="text-align:left">SKU</th>
+            <th style="text-align:left">PRODUCT ID</th>
+            <th>PO #</th>
+            <th>LOT #</th>
+            <th style="width:28px">&#10003;</th>
+            <th>SKID ID</th>
+            <th>PLT</th>
+            <th style="text-align:right">PCS</th>
+            ${hasAdj?'<th style="background:#1a9e7a">ADD</th><th style="background:#e03e3e">MISSING</th><th>ACT PLT</th><th>% ACC</th>':''}
+            <th style="text-align:left">COUNT NOTES</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+  });
+
+  const printHtml = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Cycle Count — ${session.id}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; font-size: 8.5pt; background: #fff; color: #1a1f36; }
+
+    /* Screen styles */
+    .loc-page {
+      padding: 14px 16px;
+      min-height: 100vh;
+    }
+    .loc-header {
+      font-size: 15pt; font-weight: bold; color: #3d5ce6;
+      margin-bottom: 3px;
+    }
+    .loc-sub {
+      font-size: 10pt; color: #1a1f36; margin-bottom: 8px;
+    }
+    table {
+      width: 100%; border-collapse: collapse; font-size: 8.5pt;
+    }
+    th {
+      background: #3d5ce6; color: #fff; padding: 6px 5px;
+      border: 1px solid #3d5ce6; text-align: center;
+      white-space: nowrap;
+    }
+    td {
+      padding: 4px 5px; border: 1px solid #d0d7e8;
+      text-align: center; vertical-align: middle;
+    }
+    .sku-cell  { text-align:left; font-weight:bold; color:#3d5ce6; }
+    .name-cell { text-align:left; color:#5a6484; font-size:8pt; }
+    .notes-cell { text-align:left; color:#5a6484; }
+    .grand-total td {
+      background: #3d5ce6; color: #fff; font-weight: bold;
+      border-color: #3d5ce6; padding: 6px 5px;
+    }
+    .grand-total td:first-child { text-align: left; }
+    .grand-total td:nth-child(7) { text-align: center; }
+    .grand-total td:nth-child(8) { text-align: right; }
+    tr:nth-child(even) td:not(.grand-total td) { background: #eef1f8; }
+
+    /* ── PRINT STYLES ── */
+    @media print {
+      @page {
+        size: landscape;
+        margin: 0.4in;
+      }
+      body { font-size: 8pt; }
+      .loc-page {
+        page-break-before: always;
+        page-break-after: always;
+        page-break-inside: avoid;
+        padding: 0;
+        min-height: unset;
+      }
+      .loc-page:first-child {
+        page-break-before: avoid;
+      }
+      thead { display: table-header-group; }
+      tfoot { display: table-footer-group; }
+      tr { page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  ${locHtml}
+  <script>
+    // Auto-trigger print dialog after a short delay so content renders
+    window.onload = function() { setTimeout(function(){ window.print(); }, 400); };
+  <\/script>
+</body>
+</html>`;
+
+
+  // Use hidden iframe to print without opening a new tab
+  let frame = document.getElementById('cc-print-frame');
+  if (frame) frame.remove();
+  frame = document.createElement('iframe');
+  frame.id = 'cc-print-frame';
+  frame.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;border:none';
+  document.body.appendChild(frame);
+  const doc = frame.contentDocument || frame.contentWindow.document;
+  doc.open(); doc.write(printHtml); doc.close();
+  setTimeout(()=>{
+    frame.contentWindow.focus();
+    frame.contentWindow.print();
+    // Remove iframe after print dialog closes
+    frame.contentWindow.onafterprint = function() { frame.remove(); };
+  }, 500);
+  showAlert('✓ Opening print preview — landscape format.','success');
+}
+
+
+
+
+
+
+
+
+// ─── INVENTORY IMPORT ────────────────────────────────────────────────────────
+function handleInvImport(e) {
+  const files = Array.from(e.target.files||[]);
+  e.target.value = '';
+  if (!files.length) return;
+  let idx=0; const results=[];
+  function next() {
+    if (idx>=files.length) {
+      const total = results.reduce((s,r)=>s+(r.added||0),0);
+      const customers = results.map(r=>r.customer).filter(Boolean).join(', ');
+      showAlert('✓ '+files.length+' file'+(files.length>1?'s':'')+': '+total+' records. '+customers,'success');
+      syncInvToFirebase();
+      if (document.getElementById('cap-filter-loc')) showCapacity();
+      loadCCHistory(true);
+      return;
+    }
+    const file = files[idx++];
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+      try {
+        const wb = XLSX.read(ev.target.result,{type:'binary',cellDates:true});
+        const r = parseInventoryFile(wb, file.name);
+        results.push(r);
+      } catch(err) { showAlert('Error: '+file.name+' — '+err.message,'danger'); }
+      next();
+    };
+    reader.readAsBinaryString(file);
+  }
+  next();
+}
+
+function parseInventoryFile(wb, filename) {
+  const sheets = wb.SheetNames;
+  let dataSheet=null, headerRowIdx=-1;
+  for (const name of sheets) {
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,defval:''});
+    for (let i=0;i<Math.min(10,rows.length);i++) {
+      if (rows[i].some(c=>typeof c==='string'&&c.trim().toUpperCase()==='SKU')) { dataSheet=wb.Sheets[name]; headerRowIdx=i; break; }
+    }
+    if (dataSheet) break;
+  }
+  if (!dataSheet) throw new Error('Could not find SKU column in '+filename);
+  const allRows = XLSX.utils.sheet_to_json(dataSheet,{header:1,defval:'',raw:false});
+  const hdr = allRows[headerRowIdx];
+  const ci = {};
+  hdr.forEach((h,i)=>{ if(h) ci[h.toString().trim()]=i; });
+  const skuI=ci['SKU']??-1, pcsI=ci['Pcs']??-1, locI=ci['Location']??-1;
+  const expI=ci['Expiration Date']??-1;
+  const stKey=Object.keys(ci).find(k=>k.toLowerCase().includes('inventory status'));
+  const stI=stKey?ci[stKey]:-1;
+  const pcsPendKey=Object.keys(ci).find(k=>k.toLowerCase().replace(' ','').includes('pcspending'));
+  const pcsPendI=pcsPendKey!==undefined?ci[pcsPendKey]:-1;
+  const lotI=ci['Lot #']!==undefined?ci['Lot #']:-1;
+  const skidI=ci['SkidID']!==undefined?ci['SkidID']:-1;
+  const poI=ci['PO #']!==undefined?ci['PO #']:-1;
+  const grossWtI=ci['Gross Weight']!==undefined?ci['Gross Weight']:-1;
+  const bolI=ci['Inbound BOL']!==undefined?ci['Inbound BOL']:-1;
+  if (skuI<0||pcsI<0||locI<0) throw new Error('Missing SKU/Pcs/Location columns in '+filename);
+
+  // Detect customers in file and replace their rows in rawInventory
+  const incomingCustomers = new Set();
+  for (let i=headerRowIdx+1;i<allRows.length;i++) {
+    const loc = (allRows[i][locI]||'').toString().trim();
+    const sku = (allRows[i][skuI]||'').toString().trim();
+    if (sku&&loc) incomingCustomers.add(loc.split('-')[0]||'UNKNOWN');
+  }
+  // Remove existing rows from this file's locations
+  const incomingLocs = new Set();
+  for (let i=headerRowIdx+1;i<allRows.length;i++) {
+    const loc=(allRows[i][locI]||'').toString().trim();
+    if(loc) incomingLocs.add(loc);
+  }
+  state.rawInventory = state.rawInventory.filter(r=>!incomingLocs.has(r.location));
+
+  let added=0;
+  for (let i=headerRowIdx+1;i<allRows.length;i++) {
+    const r=allRows[i];
+    const sku=(r[skuI]||'').toString().trim();
+    const pcs=parseFloat(r[pcsI]);
+    const loc=(r[locI]||'').toString().trim();
+    if (!sku||isNaN(pcs)||pcs<=0||!loc) continue;
+    const st=stI>=0?(r[stI]||'').toString().trim().toUpperCase():'AVAILABLE';
+    const exp=expI>=0?parseExpDate(r[expI]):null;
+    const pcsPend=pcsPendI>=0?(parseFloat(r[pcsPendI])||0):0;
+    state.rawInventory.push({sku,pcs,pcsPending:pcsPend,location:loc,expDate:exp,status:st||'AVAILABLE',
+      lot:lotI>=0?(r[lotI]||'').toString().trim():'',
+      skid:skidI>=0?(r[skidI]||'').toString().trim():'',
+      po:poI>=0?(r[poI]||'').toString().trim():'',
+      grossWt:grossWtI>=0?(r[grossWtI]||'').toString().trim():'',
+      bol:bolI>=0?(r[bolI]||'').toString().trim():''});
+    added++;
+  }
+  state.lastImport = Date.now();
+  state.dataLoaded = true;
+  updateDataStatus();
+  return { added, customer: filename.replace(/\.[^.]+$/,'') };
+}
+
+function parseExpDate(v) {
+  if (!v) return null;
+  if (v instanceof Date) return v;
+  const d = new Date(v); return isNaN(d)?null:d;
+}
+
+function syncInvToFirebase() {
+  if (!db) return;
+  const compact = state.rawInventory.map(r=>({...r, expDate:r.expDate?r.expDate.getTime():null}));
+  db.ref('rawInventory').set(compact).catch(()=>{});
+  db.ref('lastImport').set(state.lastImport).catch(()=>{});
+}
+
+// ─── QTY GUIDE IMPORT ─────────────────────────────────────────────────────────
+function handleQtyImport(e) {
+  const file = e.target.files[0]; e.target.value=''; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    try {
+      const wb = XLSX.read(ev.target.result,{type:'binary',cellDates:true});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:true});
+      let hi=0;
+      for(let i=0;i<Math.min(5,rows.length);i++){
+        if(rows[i].some(c=>typeof c==='string'&&c.trim().toUpperCase()==='SKU')){hi=i;break;}
+      }
+      const hdr=rows[hi];
+      const si=hdr.findIndex(h=>typeof h==='string'&&h.trim().toUpperCase()==='SKU');
+      const qi=hdr.findIndex(h=>typeof h==='string'&&h.trim().toUpperCase().includes('QTY'));
+      const ni=hdr.findIndex(h=>typeof h==='string'&&h.trim().toUpperCase()==='NAME');
+      state.qtyGuide={}; state.skuNames={};
+      for(let i=hi+1;i<rows.length;i++){
+        const r=rows[i];
+        const sku=r[si>=0?si:0]; const qty=r[qi>=0?qi:3]; const name=ni>=0?r[ni]:'';
+        if(sku&&qty&&!isNaN(parseFloat(qty))){
+          const sk=sku.toString().trim();
+          state.qtyGuide[sk]=parseFloat(qty);
+          if(name) state.skuNames[sk]=name.toString().trim();
+        }
+      }
+      if (!db) { showAlert('✓ QTY Guide loaded — '+Object.keys(state.qtyGuide).length+' SKUs.','success'); return; }
+      db.ref('qtyGuide').set({guide:state.qtyGuide,names:state.skuNames})
+        .then(()=>{ showAlert('✓ QTY Guide loaded — '+Object.keys(state.qtyGuide).length+' SKUs saved.','success'); if(document.getElementById('cap-filter-loc')) showCapacity(); })
+        .catch(e=>showAlert('Save error: '+e.message,'danger'));
+    } catch(err){ showAlert('QTY import error: '+err.message,'danger'); }
+  };
+  reader.readAsBinaryString(file);
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+
+// ─── USER MANAGEMENT ─────────────────────────────────────────────────────────
+function showUserManagement() {
+  const users = state.users.length ? state.users : USERS;
+  const fi = 'background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-family:var(--font);font-size:12px;font-weight:bold;outline:none;width:100%';
+  let h = '<div class="modal-overlay" onclick="if(event.target===this)closeModal()">';
+  h += '<div class="modal" style="width:680px;max-width:97vw">';
+  h += '<h2>👥 MANAGE USERS</h2>';
+  h += '<table class="data-table" style="font-size:12px;margin-bottom:16px"><thead><tr><th>NAME</th><th>ROLE</th><th>PASSWORD</th><th style="text-align:center">ACTIONS</th></tr></thead><tbody>';
+  users.forEach(u => {
+    const isSelf = state.currentUser && u.id===state.currentUser.id;
+    const roleColor = u.role==='admin'?'var(--warning)':'var(--accent2)';
+    h += '<tr>';
+    h += '<td style="font-weight:bold">'+u.name+(isSelf?' <span style="font-size:10px;color:var(--text2)">(you)</span>':'')+'</td>';
+    h += '<td><span style="font-weight:bold;color:'+roleColor+'">'+u.role.toUpperCase()+'</span></td>';
+    h += '<td style="color:var(--text2);font-size:11px">'+(u.password?'●●●●●●':'<em>No password</em>')+'</td>';
+    h += '<td style="text-align:center;white-space:nowrap">';
+    h += '<button class="btn btn-sm" data-uid="'+u.id+'" onclick="editUserModal(this.dataset.uid)" style="margin-right:4px">✎ Edit</button>';
+    if (!isSelf) h += '<button class="btn btn-sm btn-danger" data-uid="'+u.id+'" onclick="deleteUserConfirm(this.dataset.uid)">✕ Remove</button>';
+    h += '</td></tr>';
+  });
+  h += '</tbody></table>';
+  // Add users form
+  h += '<div style="border-top:1px solid var(--border);padding-top:14px">';
+  h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">';
+  h += '<div style="font-size:11px;font-weight:bold;letter-spacing:1px;color:var(--text2)">ADD NEW USERS</div>';
+  h += '<button class="btn btn-sm" onclick="addUserRow()">+ Add Row</button></div>';
+  h += '<div id="new-users-rows">';
+  h += '<div class="nu-row" style="display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:8px;margin-bottom:6px;align-items:center">';
+  h += '<input type="text" class="nu-name" placeholder="Full Name" style="'+fi+'">';
+  h += '<select class="nu-role" style="'+fi+'"><option value="user">User</option><option value="admin">Admin</option></select>';
+  h += '<input type="text" class="nu-pwd" placeholder="Password (optional)" style="'+fi+'">';
+  h += '<button class="btn btn-sm btn-danger" onclick="this.parentElement.remove()">✕</button>';
+  h += '</div></div>';
+  h += '<button class="btn btn-primary" onclick="saveAllNewUsers()" style="width:100%;margin-top:8px">Save All New Users</button>';
+  h += '</div>';
+  h += '<div class="modal-actions"><button class="btn" onclick="closeModal()">Close</button></div>';
+  h += '</div></div>';
+  document.getElementById('modal-container').innerHTML = h;
+}
+
+function addUserRow() {
+  const fi = 'background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-family:var(--font);font-size:12px;font-weight:bold;outline:none;width:100%';
+  const container = document.getElementById('new-users-rows');
+  if (!container) return;
+  const row = document.createElement('div');
+  row.className = 'nu-row';
+  row.style.cssText = 'display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:8px;margin-bottom:6px;align-items:center';
+  row.innerHTML = '<input type="text" class="nu-name" placeholder="Full Name" style="'+fi+'">'+
+    '<select class="nu-role" style="'+fi+'"><option value="user">User</option><option value="admin">Admin</option></select>'+
+    '<input type="text" class="nu-pwd" placeholder="Password (optional)" style="'+fi+'">'+
+    '<button class="btn btn-sm btn-danger" onclick="this.parentElement.remove()">✕</button>';
+  container.appendChild(row);
+}
+
+function saveAllNewUsers() {
+  const rows = document.querySelectorAll('.nu-row');
+  if (!rows.length) { showAlert('No users to add.','warning'); return; }
+  const toAdd = []; let hasError = false;
+  rows.forEach(row => {
+    const name = (row.querySelector('.nu-name').value||'').trim();
+    const role = row.querySelector('.nu-role').value;
+    const pwd = (row.querySelector('.nu-pwd').value||'').trim();
+    if (!name) { hasError = true; return; }
+    const id = name.replace(/\s+/g,'').substring(0,12)+'_'+Date.now().toString().slice(-4)+(Math.random()*100|0);
+    toAdd.push({ id, name, password:pwd||null, role });
+  });
+  if (hasError) { showAlert('Please fill in all name fields.','warning'); return; }
+  if (!toAdd.length) { showAlert('No valid users to add.','warning'); return; }
+  if (!db) { showAlert('No database connection.','danger'); return; }
+  const updates = {};
+  toAdd.forEach(u=>{ updates['ccUsers/'+u.id]={name:u.name,password:u.password,role:u.role}; });
+  db.ref().update(updates)
+    .then(()=>{ showAlert('✓ '+toAdd.length+' user'+(toAdd.length>1?'s':'')+' added.','success'); showUserManagement(); })
+    .catch(e=>showAlert('Error: '+e.message,'danger'));
+}
+
+function editUserModal(uid) {
+  const users = state.users.length ? state.users : USERS;
+  const u = users.find(x=>x.id===uid); if (!u) return;
+  const isSelf = state.currentUser && uid===state.currentUser.id;
+  const fi = 'background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-family:var(--font);font-size:12px;font-weight:bold;outline:none;width:100%';
+  let h = '<div class="modal-overlay" onclick="if(event.target===this)closeModal()">';
+  h += '<div class="modal" style="width:420px">';
+  h += '<h2>✎ Edit — '+u.name+'</h2>';
+  h += '<div class="form-group"><label>ROLE</label>';
+  h += '<select id="eu-role" style="'+fi+'"'+(isSelf?' disabled':'')+'>'; 
+  h += '<option value="user"'+(u.role==='user'?' selected':'')+'>User</option>';
+  h += '<option value="admin"'+(u.role==='admin'?' selected':'')+'>Admin</option>';
+  h += '</select></div>';
+  h += '<div class="form-group"><label>NEW PASSWORD <span style="font-weight:normal;font-size:10px">(leave blank to keep current)</span></label>';
+  h += '<input type="text" id="eu-pwd" placeholder="Enter new password..." style="'+fi+'"></div>';
+  h += '<div style="font-size:11px;color:var(--text2);margin-top:4px">Current: '+(u.password?'Password set':'<em>No password</em>')+'</div>';
+  h += '<div class="modal-actions">';
+  h += '<button class="btn" data-uid="'+uid+'" onclick="showUserManagement()">← Back</button>';
+  h += '<button class="btn btn-danger" data-uid="'+uid+'" onclick="clearUserPassword(this.dataset.uid)">Clear Password</button>';
+  h += '<button class="btn btn-primary" data-uid="'+uid+'" onclick="saveUserEdit(this.dataset.uid)">Save</button>';
+  h += '</div></div></div>';
+  document.getElementById('modal-container').innerHTML = h;
+}
+
+function saveUserEdit(uid) {
+  const users = state.users.length ? state.users : USERS;
+  const u = users.find(x=>x.id===uid); if (!u) return;
+  const isSelf = state.currentUser && uid===state.currentUser.id;
+  const newRole = isSelf ? u.role : document.getElementById('eu-role').value;
+  const newPwdField = (document.getElementById('eu-pwd').value||'').trim();
+  const newPwd = newPwdField==='' ? u.password : (newPwdField||null);
+  if (newPwdField !== '') {
+    const msg = newPwd ? 'Set password to "'+newPwd+'" for '+u.name+'?' : 'Clear password for '+u.name+'?';
+    let h = '<div class="modal-overlay"><div class="modal" style="width:360px;text-align:center">';
+    h += '<h2>Confirm Password Change</h2><p style="margin:16px 0;font-size:14px">'+msg+'</p>';
+    h += '<div class="modal-actions">';
+    h += '<button class="btn" data-uid="'+uid+'" onclick="editUserModal(this.dataset.uid)">← Back</button>';
+    h += '<button class="btn btn-primary" data-uid="'+uid+'" data-role="'+newRole+'" data-pwd="'+(newPwd||'__null__')+'" onclick="confirmSaveUser(this.dataset.uid,this.dataset.role,this.dataset.pwd)">Yes, Save</button>';
+    h += '</div></div></div>';
+    document.getElementById('modal-container').innerHTML = h;
+  } else {
+    db.ref('ccUsers/'+uid).update({role:newRole})
+      .then(()=>{ showAlert('✓ User updated.','success'); showUserManagement(); })
+      .catch(e=>showAlert('Error: '+e.message,'danger'));
+  }
+}
+
+function confirmSaveUser(uid, role, pwdRaw) {
+  const pwd = pwdRaw==='__null__' ? null : pwdRaw;
+  db.ref('ccUsers/'+uid).update({role, password:pwd})
+    .then(()=>{ showAlert('✓ Password saved.','success'); showUserManagement(); })
+    .catch(e=>showAlert('Error: '+e.message,'danger'));
+}
+
+function clearUserPassword(uid) {
+  db.ref('ccUsers/'+uid).update({password:null})
+    .then(()=>{ showAlert('✓ Password cleared.','success'); showUserManagement(); })
+    .catch(e=>showAlert('Error: '+e.message,'danger'));
+}
+
+function deleteUserConfirm(uid) {
+  const users = state.users.length ? state.users : USERS;
+  const u = users.find(x=>x.id===uid); if (!u) return;
+  let h = '<div class="modal-overlay"><div class="modal" style="width:360px;text-align:center">';
+  h += '<h2 style="color:var(--danger)">Remove User</h2>';
+  h += '<p style="margin:16px 0;font-size:14px">Remove <strong>'+u.name+'</strong>? This cannot be undone.</p>';
+  h += '<div class="modal-actions">';
+  h += '<button class="btn" onclick="showUserManagement()">Cancel</button>';
+  h += '<button class="btn btn-danger" data-uid="'+uid+'" onclick="deleteUser(this.dataset.uid)">Remove</button>';
+  h += '</div></div></div>';
+  document.getElementById('modal-container').innerHTML = h;
+}
+
+function deleteUser(uid) {
+  db.ref('ccUsers/'+uid).remove()
+    .then(()=>{ showAlert('✓ User removed.','success'); closeModal(); })
+    .catch(e=>showAlert('Error: '+e.message,'danger'));
+}
+
+// ─── DELETE CYCLE COUNT SESSION ───────────────────────────────────────────────
+function confirmDeleteSession(sessionId) {
+  let h = '<div class="modal-overlay" onclick="if(event.target===this)closeModal()">';
+  h += '<div class="modal" style="width:380px;text-align:center">';
+  h += '<h2 style="color:var(--danger)">Delete Count Session</h2>';
+  h += '<p style="margin:16px 0;font-size:14px">Delete session <strong style="color:var(--accent)">'+sessionId+'</strong>?<br>';
+  h += '<span style="font-size:12px;color:var(--text2)">This will remove the count data and reset all totals for this session. This cannot be undone.</span></p>';
+  h += '<div class="modal-actions">';
+  h += '<button class="btn" onclick="closeModal()">Cancel</button>';
+  h += '<button class="btn btn-danger" data-sid="'+sessionId+'" onclick="deleteSession(this.dataset.sid)">Delete Session</button>';
+  h += '</div></div></div>';
+  document.getElementById('modal-container').innerHTML = h;
+}
+
+function deleteSession(sessionId) {
+  if (!db) return;
+  db.ref('cycleCount6049/'+sessionId).remove()
+    .then(()=>{
+      showAlert('✓ Session '+sessionId+' deleted.','success');
+      closeModal();
+      // If we were viewing this session, go back to start
+      if (window._ccLastSession && window._ccLastSession.id===sessionId) {
+        window._ccLastSession = null;
+        showCycleCountStart();
+      }
+      loadCCHistory();
+    })
+    .catch(e=>showAlert('Error: '+e.message,'danger'));
+}
+
+window.addEventListener('load', () => {
+  buildLoginScreen();
+  initFirebase();
+});
+</script>
+
+<input type="file" id="cap-ref-input" accept=".xlsx,.xls,.xlsb" style="display:none" onchange="handleCapRefImport(event)">
+<input type="file" id="inv-import-input" accept=".xlsx,.xls,.xlsb" style="display:none" multiple onchange="handleInvImport(event)">
+<input type="file" id="qty-import-input" accept=".xlsx,.xls,.xlsb" style="display:none" onchange="handleQtyImport(event)">
+
+</body>
+</html>
