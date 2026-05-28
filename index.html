@@ -250,10 +250,10 @@ function listenToFirebase() {
   db.ref('ccUsers').on('value', snap => {
     const data = snap.val();
     if (data && Object.keys(data).length) {
-      state.users = Object.entries(data).map(([id,u])=>({id,...u}));
+      state.users = Object.entries(data).map(([id,u])=>({id,...u, password: u.password||null}));
       // Always ensure Omar has no password (master admin)
       const omar = state.users.find(u=>u.id==='Ocontreras');
-      if (omar && omar.password !== null) {
+      if (omar && omar.password) {
         omar.password = null;
         db.ref('ccUsers/Ocontreras/password').set(null).catch(()=>{});
       }
@@ -335,7 +335,7 @@ function selectUser(btn, uid) {
   const user = (state.users.length?state.users:USERS).find(u=>u.id===uid);
   const pwd = document.getElementById('pwd-section');
   document.getElementById('login-error').style.display = 'none';
-  if (user.password===null) { pwd.style.display='none'; document.getElementById('login-btn').disabled=false; }
+  if (!user.password) { pwd.style.display='none'; document.getElementById('login-btn').disabled=false; }
   else { pwd.style.display='block'; document.getElementById('pwd-input').value=''; document.getElementById('pwd-input').focus(); document.getElementById('login-btn').disabled=false; }
 }
 
@@ -343,7 +343,7 @@ function doLogin() {
   if (!selectedUserId) return;
   const user = (state.users.length?state.users:USERS).find(u=>u.id===selectedUserId);
   if (!user) return;
-  if (user.password!==null) {
+  if (user.password) {
     const entered = document.getElementById('pwd-input').value;
     if (entered!==user.password) { document.getElementById('login-error').style.display='block'; document.getElementById('pwd-input').value=''; return; }
   }
@@ -1814,7 +1814,7 @@ function editUserModal(uid) {
   h += '</select></div>';
   h += '<div class="form-group"><label>NEW PASSWORD <span style="font-weight:normal;font-size:10px">(leave blank to keep current)</span></label>';
   h += '<input type="text" id="eu-pwd" placeholder="Enter new password..." style="'+fi+'"></div>';
-  h += '<div style="font-size:11px;color:var(--text2);margin-top:4px">Current: '+(u.password?'Password set':'<em>No password</em>')+'</div>';
+  h += '<div style="font-size:11px;color:var(--text2);margin-top:4px">Current: '+(u.password?'Password set':'<em style="color:var(--accent2)">No password — click to sign in</em>')+'</div>';
   h += '<div class="modal-actions">';
   h += '<button class="btn" data-uid="'+uid+'" onclick="showUserManagement()">← Back</button>';
   h += '<button class="btn btn-danger" data-uid="'+uid+'" onclick="clearUserPassword(this.dataset.uid)">Clear Password</button>';
