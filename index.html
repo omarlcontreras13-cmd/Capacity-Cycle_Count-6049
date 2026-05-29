@@ -162,7 +162,7 @@
     <div class="header-loc">6049 — FULTON</div>
     <div class="header-right">
       <div id="sync-dot"></div>
-      <div id="data-status" style="font-size:10px;color:var(--text2)">CONNECTING...</div>
+      <div id="data-status" style="font-size:11px;color:var(--text2);letter-spacing:0.5px"><span style="color:var(--warning)">●</span> CONNECTING...</div>
       <div id="user-display" style="font-size:11px;color:var(--accent)"></div>
       <button class="btn-logout" onclick="logout()">Sign Out</button>
     </div>
@@ -299,9 +299,12 @@ function listenToFirebase() {
 function updateDataStatus() {
   const el = document.getElementById('data-status');
   if (!el) return;
+  const ts = state.lastImport ? new Date(state.lastImport) : null;
+  const tsStr = ts ? ' | Last Import: ' + ts.toLocaleDateString('en-US',{month:'2-digit',day:'2-digit',year:'numeric'}) + ' ' + ts.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) : '';
   if (state.dataLoaded) {
-    const t = state.lastImport ? ' · ' + new Date(state.lastImport).toLocaleDateString('en-US',{month:'2-digit',day:'2-digit'}) + ' ' + new Date(state.lastImport).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) : '';
-    el.textContent = state.rawInventory.length.toLocaleString() + ' RECORDS' + t;
+    el.innerHTML = '<span style="color:var(--accent2)">●</span> ' + state.rawInventory.length.toLocaleString() + ' RECORDS' + tsStr;
+  } else {
+    el.innerHTML = '<span style="color:var(--warning)">●</span> CONNECTING...';
   }
 }
 
@@ -584,7 +587,7 @@ function renderCapTable() {
     }
 
     skus.forEach((s,si) => {
-      const expStr = s.expDates.sort((a,b)=>a-b).slice(0,3).map(d=>d.toLocaleDateString()).join('  ');
+      const expStr = [...new Set(s.expDates.map(d=>d.toLocaleDateString()))].sort().slice(0,3).join('  ');
       const name = state.skuNames[s.sku]||'';
       const palStr = Math.round(s.pal*10)/10;
       t += `<tr>
@@ -626,7 +629,7 @@ function exportCapacityExcel() {
       summary.push(hasRef?[loc.location,maxCap,0,maxCap,0,'','','','']:[loc.location,0,'','','']);
     } else {
       skus.forEach((s,si) => {
-        const expStr = s.expDates.sort((a,b)=>a-b).slice(0,3).map(d=>d.toLocaleDateString()).join(', ');
+        const expStr = [...new Set(s.expDates.map(d=>d.toLocaleDateString()))].sort().slice(0,3).join(', ');
         const name = state.skuNames[s.sku]||'';
         summary.push(hasRef?[si===0?loc.location:'',si===0?maxCap:'',si===0?utl:'',si===0?Math.round(avail):'',si===0?pct:'',s.sku,name,expStr,si===0?breakdown:'']:[si===0?loc.location:'',si===0?utl:'',s.sku,name,expStr]);
       });
@@ -1579,12 +1582,15 @@ function handleInvImport(e) {
   const files = Array.from(e.target.files||[]);
   e.target.value = '';
   if (!files.length) return;
-  let idx=0; const results=[];
+  let idx=0; const allRecords=[]; const customers=[];
   function next() {
     if (idx>=files.length) {
-      const total = results.reduce((s,r)=>s+(r.added||0),0);
-      const customers = results.map(r=>r.customer).filter(Boolean).join(', ');
-      showAlert('✓ '+files.length+' file'+(files.length>1?'s':'')+': '+total+' records. '+customers,'success');
+      // Full replacement — wipe existing inventory and write all new records
+      state.rawInventory = allRecords;
+      state.lastImport = Date.now();
+      state.dataLoaded = true;
+      updateDataStatus();
+      showAlert('✓ '+files.length+' file'+(files.length>1?'s':'')+': '+allRecords.length.toLocaleString()+' records loaded. '+customers.join(', '),'success');
       syncInvToFirebase();
       if (document.getElementById('cap-filter-loc')) showCapacity();
       loadCCHistory(true);
@@ -1595,8 +1601,9 @@ function handleInvImport(e) {
     reader.onload = function(ev) {
       try {
         const wb = XLSX.read(ev.target.result,{type:'binary',cellDates:true});
-        const r = parseInventoryFile(wb, file.name);
-        results.push(r);
+        const recs = parseInventoryFile(wb, file.name);
+        allRecords.push(...recs);
+        customers.push(file.name.replace(/\.[^.]+$/,''));
       } catch(err) { showAlert('Error: '+file.name+' — '+err.message,'danger'); }
       next();
     };
@@ -1633,22 +1640,8 @@ function parseInventoryFile(wb, filename) {
   const bolI=ci['Inbound BOL']!==undefined?ci['Inbound BOL']:-1;
   if (skuI<0||pcsI<0||locI<0) throw new Error('Missing SKU/Pcs/Location columns in '+filename);
 
-  // Detect customers in file and replace their rows in rawInventory
-  const incomingCustomers = new Set();
-  for (let i=headerRowIdx+1;i<allRows.length;i++) {
-    const loc = (allRows[i][locI]||'').toString().trim();
-    const sku = (allRows[i][skuI]||'').toString().trim();
-    if (sku&&loc) incomingCustomers.add(loc.split('-')[0]||'UNKNOWN');
-  }
-  // Remove existing rows from this file's locations
-  const incomingLocs = new Set();
-  for (let i=headerRowIdx+1;i<allRows.length;i++) {
-    const loc=(allRows[i][locI]||'').toString().trim();
-    if(loc) incomingLocs.add(loc);
-  }
-  state.rawInventory = state.rawInventory.filter(r=>!incomingLocs.has(r.location));
-
-  let added=0;
+  // Return records array — caller handles full replacement
+  const records = [];
   for (let i=headerRowIdx+1;i<allRows.length;i++) {
     const r=allRows[i];
     const sku=(r[skuI]||'').toString().trim();
@@ -1658,18 +1651,14 @@ function parseInventoryFile(wb, filename) {
     const st=stI>=0?(r[stI]||'').toString().trim().toUpperCase():'AVAILABLE';
     const exp=expI>=0?parseExpDate(r[expI]):null;
     const pcsPend=pcsPendI>=0?(parseFloat(r[pcsPendI])||0):0;
-    state.rawInventory.push({sku,pcs,pcsPending:pcsPend,location:loc,expDate:exp,status:st||'AVAILABLE',
+    records.push({sku,pcs,pcsPending:pcsPend,location:loc,expDate:exp,status:st||'AVAILABLE',
       lot:lotI>=0?(r[lotI]||'').toString().trim():'',
       skid:skidI>=0?(r[skidI]||'').toString().trim():'',
       po:poI>=0?(r[poI]||'').toString().trim():'',
       grossWt:grossWtI>=0?(r[grossWtI]||'').toString().trim():'',
       bol:bolI>=0?(r[bolI]||'').toString().trim():''});
-    added++;
   }
-  state.lastImport = Date.now();
-  state.dataLoaded = true;
-  updateDataStatus();
-  return { added, customer: filename.replace(/\.[^.]+$/,'') };
+  return records;
 }
 
 function parseExpDate(v) {
