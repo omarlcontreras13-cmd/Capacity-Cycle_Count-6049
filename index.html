@@ -646,7 +646,11 @@ function exportCapacityExcel() {
 // ─── CYCLE COUNT ──────────────────────────────────────────────────────────────
 
 function showCycleCountStart() {
-  const locs = [...new Set(state.rawInventory.map(r=>r.location).filter(Boolean))].sort();
+  // Use ALL capacity ref locations + any inventory locations not in cap ref
+  const capLocs = Object.keys(state.capacityRef||{});
+  const invLocs = [...new Set(state.rawInventory.map(r=>r.location).filter(Boolean))];
+  const locs = [...new Set([...capLocs, ...invLocs])].sort();
+
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
   const monthEnd   = new Date(now.getFullYear(), now.getMonth()+1, 0, 23,59,59).getTime();
@@ -661,95 +665,147 @@ function showCycleCountStart() {
         <div style="font-size:13px;color:var(--accent2);font-weight:bold;margin-top:4px">${todayStr}</div>
         <div style="font-size:11px;color:var(--text2);margin-top:2px">Goal: count all locations within <strong style="color:var(--accent)">${monthName}</strong></div>
       </div>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 340px;gap:20px;align-items:start">
-      <div>
-        <div style="font-size:11px;color:var(--text2);letter-spacing:1px;margin-bottom:10px;font-weight:bold">SELECT LOCATIONS TO COUNT</div>
-        <div class="form-group" style="margin-bottom:10px">
-          <input type="text" id="cc-loc-search" placeholder="Filter locations..." oninput="filterCCLocs()" style="${fi}">
-        </div>
-        <div style="display:flex;gap:8px;margin-bottom:10px">
-          <button class="btn btn-sm" onclick="document.querySelectorAll('.cc-loc-chk').forEach(c=>c.checked=true)">Select All</button>
-          <button class="btn btn-sm" onclick="document.querySelectorAll('.cc-loc-chk').forEach(c=>c.checked=false)">Clear All</button>
-          <span id="cc-sel-count" style="font-size:12px;color:var(--text2);padding:5px 8px">0 selected</span>
-        </div>
-
-        <!-- Month progress bar -->
-        <div id="cc-month-progress" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:12px">
-          Loading month progress...
-        </div>
-
-        <div class="cc-loc-list" id="cc-loc-list" style="max-height:420px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:6px">
-          <div style="text-align:center;color:var(--text2);padding:16px;font-size:13px">Loading locations...</div>
-        </div>
-        <button class="btn btn-primary" style="width:100%;margin-top:12px;font-size:14px;padding:12px" onclick="startCycleCount()">Start Count →</button>
-      </div>
-
-      <div>
-        <div style="font-size:11px;color:var(--text2);letter-spacing:1px;margin-bottom:10px;font-weight:bold">RECENT COUNTS</div>
-        <div id="cc-inline-history">Loading...</div>
-      </div>
     </div>`;
 
-  document.getElementById('main-panel').innerHTML = html;
-  window._ccAllLocs = locs;
-
-  // Load session history to build month count map, then render locations
+  // Load session history first — build everything from it
   if (db) {
     db.ref('cycleCount6049').orderByChild('createdAt').once('value', snap => {
       const data = snap.val() || {};
-      const sessions = Object.values(data);
+      const sessions = Object.values(data).sort((a,b)=>b.createdAt-a.createdAt);
 
-      // Build map: location → count of sessions this month
+      // Month count map
       const monthCountMap = {};
       sessions.forEach(s => {
-        if (!s.createdAt || s.createdAt < monthStart || s.createdAt > monthEnd) return;
-        (s.locations||[]).forEach(loc => {
-          monthCountMap[loc] = (monthCountMap[loc]||0) + 1;
-        });
+        if (!s.createdAt||s.createdAt<monthStart||s.createdAt>monthEnd) return;
+        (s.locations||[]).forEach(loc=>{ monthCountMap[loc]=(monthCountMap[loc]||0)+1; });
       });
       window._ccMonthCountMap = monthCountMap;
 
-      // Month progress
+      // ── Overall summary bar ────────────────────────────────────────────────
       const counted = locs.filter(l=>monthCountMap[l]>0).length;
+      const notCounted = locs.length - counted;
       const pct = locs.length>0 ? Math.round(counted/locs.length*100) : 0;
       const pctColor = pct>=100?'var(--accent2)':pct>=50?'var(--warning)':'var(--danger)';
-      const progressEl = document.getElementById('cc-month-progress');
-      if (progressEl) progressEl.innerHTML = `
-        <div style="display:flex;justify-content:space-between;margin-bottom:6px">
-          <span style="font-weight:bold;color:var(--text)">${monthName} Progress</span>
-          <span style="font-weight:bold;color:${pctColor}">${counted} / ${locs.length} locations &nbsp; ${pct}%</span>
+
+      // Accuracy from sessions with adjustments this month
+      const monthSessions = sessions.filter(s=>s.createdAt>=monthStart&&s.createdAt<=monthEnd);
+      let totalLines=0, accurateLines=0, totalSessions=monthSessions.length;
+      monthSessions.forEach(s=>{
+        (s.adjustments||[]).forEach(a=>{
+          totalLines++;
+          if (((a.adjAdd||0)-(a.adjMiss||0))===0) accurateLines++;
+        });
+      });
+      const binAcc = totalLines>0 ? Math.round(accurateLines/totalLines*100) : null;
+
+      html += `
+      <!-- Overall Summary -->
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:20px">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
+          <div style="font-size:9px;color:var(--text2);letter-spacing:1px;margin-bottom:4px">TOTAL LOCATIONS</div>
+          <div style="font-size:26px;font-weight:bold;color:var(--text)">${locs.length}</div>
         </div>
-        <div style="background:var(--border);border-radius:4px;height:8px;overflow:hidden">
-          <div style="width:${pct}%;background:${pctColor};height:100%;border-radius:4px;transition:width 0.4s"></div>
-        </div>`;
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
+          <div style="font-size:9px;color:var(--text2);letter-spacing:1px;margin-bottom:4px">COUNTED THIS MONTH</div>
+          <div style="font-size:26px;font-weight:bold;color:var(--accent2)">${counted}</div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
+          <div style="font-size:9px;color:var(--text2);letter-spacing:1px;margin-bottom:4px">NOT COUNTED</div>
+          <div style="font-size:26px;font-weight:bold;color:${notCounted>0?'var(--danger)':'var(--accent2)'}">${notCounted}</div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
+          <div style="font-size:9px;color:var(--text2);letter-spacing:1px;margin-bottom:4px">SESSIONS THIS MONTH</div>
+          <div style="font-size:26px;font-weight:bold;color:var(--accent)">${totalSessions}</div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
+          <div style="font-size:9px;color:var(--text2);letter-spacing:1px;margin-bottom:4px">BIN ACCURACY</div>
+          <div style="font-size:26px;font-weight:bold;color:${binAcc===null?'var(--text2)':binAcc>=100?'var(--accent2)':binAcc>=95?'var(--warning)':'var(--danger)'}">${binAcc!==null?binAcc+'%':'—'}</div>
+          ${binAcc!==null?`<div style="font-size:9px;color:var(--text2)">${accurateLines}/${totalLines} lines</div>`:''}
+        </div>
+      </div>
 
-      // Render location list with month counts
-      renderCCLocList(locs, monthCountMap);
+      <div style="display:grid;grid-template-columns:1fr 340px;gap:20px;align-items:start">
+        <div>
+          <div style="font-size:11px;color:var(--text2);letter-spacing:1px;margin-bottom:10px;font-weight:bold">SELECT LOCATIONS TO COUNT</div>
+          <div class="form-group" style="margin-bottom:10px">
+            <input type="text" id="cc-loc-search" placeholder="Filter locations..." oninput="filterCCLocs()" style="${fi}">
+          </div>
+          <div style="display:flex;gap:8px;margin-bottom:10px">
+            <button class="btn btn-sm" onclick="document.querySelectorAll('.cc-loc-chk').forEach(c=>c.checked=true);updateCCSelCount()">Select All</button>
+            <button class="btn btn-sm" onclick="document.querySelectorAll('.cc-loc-chk').forEach(c=>c.checked=false);updateCCSelCount()">Clear All</button>
+            <span id="cc-sel-count" style="font-size:12px;color:var(--text2);padding:5px 8px">0 selected</span>
+          </div>
 
-      // Recent counts sidebar
-      const recent = sessions.sort((a,b)=>b.createdAt-a.createdAt).slice(0,10);
-      const histEl = document.getElementById('cc-inline-history');
-      if (histEl) {
-        if (!recent.length) {
-          histEl.innerHTML = '<div style="font-size:12px;color:var(--text2)">No cycle counts yet.</div>';
-        } else {
-          histEl.innerHTML = recent.map(s=>`
-            <div style="padding:9px 8px;border:1px solid var(--border);border-radius:6px;margin-bottom:6px;cursor:pointer;font-size:12px" onclick="viewCCSession('${s.id}')">
-              <div style="display:flex;align-items:center;justify-content:space-between;gap:4px">
-                <span style="font-weight:bold;color:var(--accent)">${s.id}</span>
-                ${isAdmin()?`<button onclick="event.stopPropagation();confirmDeleteSession('${s.id}')" title="Delete" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:13px;padding:0">✕</button>`:''}
-              </div>
-              <div style="color:var(--text2);font-size:11px">${new Date(s.createdAt).toLocaleString()} · ${s.countedBy}</div>
-              <div style="color:var(--text2);font-size:11px">${(s.locations||[]).length} locations${s.adjustments&&s.adjustments.length?` · <span style="color:var(--accent2)">Adjusted</span>`:''}</div>
-            </div>`).join('');
-        }
+          <!-- Month progress bar -->
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:10px">
+            <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+              <span style="font-weight:bold;color:var(--text);font-size:12px">${monthName} Progress</span>
+              <span style="font-weight:bold;color:${pctColor};font-size:12px">${counted} / ${locs.length} locations &nbsp; ${pct}%</span>
+            </div>
+            <div style="background:var(--border);border-radius:4px;height:8px;overflow:hidden">
+              <div style="width:${pct}%;background:${pctColor};height:100%;border-radius:4px;transition:width 0.4s"></div>
+            </div>
+          </div>
+
+          <div class="cc-loc-list" id="cc-loc-list" style="max-height:380px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:6px">`;
+
+      // Render location list
+      if (!locs.length) {
+        html += '<div style="text-align:center;color:var(--text2);padding:20px;font-size:13px">No locations found. Import inventory or capacity reference first.</div>';
+      } else {
+        locs.forEach(l => {
+          const avail = state.rawInventory.filter(r=>r.location===l&&(r.pcsPending||0)===0).length;
+          const picked = state.rawInventory.filter(r=>r.location===l&&(r.pcsPending||0)>0).length;
+          const monthCount = monthCountMap[l]||0;
+          const countedBadge = monthCount>0
+            ? `<span style="background:rgba(26,158,122,0.15);color:var(--accent2);border-radius:10px;padding:1px 8px;font-size:11px;font-weight:bold">✓ ${monthCount}x this month</span>`
+            : `<span style="background:rgba(224,62,62,0.1);color:var(--danger);border-radius:10px;padding:1px 8px;font-size:11px">Not counted</span>`;
+          html += `<label class="cc-loc-item" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border)" onmouseover="this.style.background='rgba(79,110,247,0.07)'" onmouseout="this.style.background=''">
+            <input type="checkbox" class="cc-loc-chk" value="${l}" onchange="updateCCSelCount()" style="cursor:pointer;width:16px;height:16px">
+            <span style="font-weight:bold;color:var(--accent);min-width:80px">${l}</span>
+            ${avail?`<span style="color:var(--accent2);font-size:12px">${avail} avail</span>`:`<span style="color:var(--text2);font-size:12px">Empty</span>`}
+            ${picked?`<span style="color:var(--warning);font-size:12px">${picked} picked</span>`:''}
+            <span style="margin-left:auto">${countedBadge}</span>
+          </label>`;
+        });
       }
+
+      html += `</div>
+          <button class="btn btn-primary" style="width:100%;margin-top:12px;font-size:14px;padding:12px" onclick="startCycleCount()">Start Count →</button>
+        </div>
+
+        <div>
+          <div style="font-size:11px;color:var(--text2);letter-spacing:1px;margin-bottom:10px;font-weight:bold">RECENT COUNTS</div>
+          <div id="cc-inline-history">`;
+
+      // Recent counts
+      const recent = sessions.slice(0,10);
+      if (!recent.length) {
+        html += '<div style="font-size:12px;color:var(--text2)">No cycle counts yet.</div>';
+      } else {
+        html += recent.map(s=>`
+          <div style="padding:9px 8px;border:1px solid var(--border);border-radius:6px;margin-bottom:6px;font-size:12px">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:4px">
+              <span style="font-weight:bold;color:var(--accent);cursor:pointer" onclick="viewCCSession('${s.id}')">${s.id}</span>
+              ${isAdmin()?`<button onclick="confirmDeleteSession('${s.id}')" title="Delete" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:13px;padding:0">✕</button>`:''}
+            </div>
+            <div style="color:var(--text2);font-size:11px;cursor:pointer" onclick="viewCCSession('${s.id}')">${new Date(s.createdAt).toLocaleString()} · ${s.countedBy}</div>
+            <div style="color:var(--text2);font-size:11px">${(s.locations||[]).length} locations${s.adjustments&&s.adjustments.length?` · <span style="color:var(--accent2)">Adjusted</span>`:''}</div>
+          </div>`).join('');
+      }
+
+      html += `</div></div></div>`;
+
+      document.getElementById('main-panel').innerHTML = html;
+      window._ccAllLocs = locs;
     });
   } else {
-    renderCCLocList(locs, {});
+    // Offline — render without history
+    document.getElementById('main-panel').innerHTML = html + `<div class="alert alert-warning">Not connected to database.</div>`;
+    window._ccAllLocs = locs;
   }
 }
+
 
 function renderCCLocList(locs, monthCountMap) {
   const listEl = document.getElementById('cc-loc-list');
