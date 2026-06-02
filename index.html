@@ -728,7 +728,11 @@ function showCycleCountStart() {
         <div>
           <div style="font-size:11px;color:var(--text2);letter-spacing:1px;margin-bottom:10px;font-weight:bold">SELECT LOCATIONS TO COUNT</div>
           <div class="form-group" style="margin-bottom:10px">
-            <input type="text" id="cc-loc-search" placeholder="Filter locations..." oninput="filterCCLocs()" style="${fi}">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+              <input type="text" id="cc-loc-search" placeholder="Filter by Location..." oninput="filterCCLocs()" style="${fi}">
+              <input type="text" id="cc-sku-search" placeholder="Filter by SKU..." oninput="filterCCLocs()" style="${fi}">
+              <input type="text" id="cc-lot-search" placeholder="Filter by LOT #..." oninput="filterCCLocs()" style="${fi}">
+            </div>
           </div>
           <div style="display:flex;gap:8px;margin-bottom:10px">
             <button class="btn btn-sm" onclick="document.querySelectorAll('.cc-loc-chk').forEach(c=>c.checked=true);updateCCSelCount()">Select All</button>
@@ -756,11 +760,13 @@ function showCycleCountStart() {
         locs.forEach(l => {
           const avail = state.rawInventory.filter(r=>r.location===l&&(r.pcsPending||0)===0).length;
           const picked = state.rawInventory.filter(r=>r.location===l&&(r.pcsPending||0)>0).length;
+          const locSkus = [...new Set(state.rawInventory.filter(r=>r.location===l).map(r=>r.sku||'').filter(Boolean))].join(' ');
+          const locLots = [...new Set(state.rawInventory.filter(r=>r.location===l).map(r=>r.lot||r.batch||'').filter(Boolean))].join(' ');
           const monthCount = monthCountMap[l]||0;
           const countedBadge = monthCount>0
             ? `<span style="background:rgba(26,158,122,0.15);color:var(--accent2);border-radius:10px;padding:1px 8px;font-size:11px;font-weight:bold">✓ ${monthCount}x this month</span>`
             : `<span style="background:rgba(224,62,62,0.1);color:var(--danger);border-radius:10px;padding:1px 8px;font-size:11px">Not counted</span>`;
-          html += `<label class="cc-loc-item" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border)" onmouseover="this.style.background='rgba(79,110,247,0.07)'" onmouseout="this.style.background=''">
+          html += `<label class="cc-loc-item" data-loc="${l.toLowerCase()}" data-sku="${locSkus.toLowerCase()}" data-lot="${locLots.toLowerCase()}" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border)" onmouseover="this.style.background='rgba(79,110,247,0.07)'" onmouseout="this.style.background=''">
             <input type="checkbox" class="cc-loc-chk" value="${l}" onchange="updateCCSelCount()" style="cursor:pointer;width:16px;height:16px">
             <span style="font-weight:bold;color:var(--accent);min-width:80px">${l}</span>
             ${avail?`<span style="color:var(--accent2);font-size:12px">${avail} avail</span>`:`<span style="color:var(--text2);font-size:12px">Empty</span>`}
@@ -819,7 +825,7 @@ function renderCCLocList(locs, monthCountMap) {
     const countedBadge = monthCount>0
       ? `<span style="background:rgba(26,158,122,0.15);color:var(--accent2);border-radius:10px;padding:1px 8px;font-size:11px;font-weight:bold">✓ ${monthCount}x this month</span>`
       : `<span style="background:rgba(224,62,62,0.1);color:var(--danger);border-radius:10px;padding:1px 8px;font-size:11px">Not counted</span>`;
-    return `<label class="cc-loc-item" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border)" onmouseover="this.style.background='rgba(79,110,247,0.07)'" onmouseout="this.style.background=''">
+    return `<label class="cc-loc-item" data-loc="${l.toLowerCase()}" data-sku="${locSkus.toLowerCase()}" data-lot="${locLots.toLowerCase()}" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border)" onmouseover="this.style.background='rgba(79,110,247,0.07)'" onmouseout="this.style.background=''">
       <input type="checkbox" class="cc-loc-chk" value="${l}" onchange="updateCCSelCount()" style="cursor:pointer;width:16px;height:16px">
       <span style="font-weight:bold;color:var(--accent);min-width:80px">${l}</span>
       <span style="color:var(--accent2);font-size:12px">${cnt} avail</span>
@@ -836,10 +842,17 @@ function updateCCSelCount() {
 }
 
 function filterCCLocs() {
-  const q = (document.getElementById('cc-loc-search')||{}).value||'';
-  document.querySelectorAll('.cc-loc-chk').forEach(chk=>{
-    const row = chk.closest('label');
-    if (row) row.style.display = chk.value.toLowerCase().includes(q.toLowerCase()) ? '' : 'none';
+  const qLoc = ((document.getElementById('cc-loc-search')||{}).value||'').toLowerCase().trim();
+  const qSku = ((document.getElementById('cc-sku-search')||{}).value||'').toLowerCase().trim();
+  const qLot = ((document.getElementById('cc-lot-search')||{}).value||'').toLowerCase().trim();
+  document.querySelectorAll('.cc-loc-item').forEach(label => {
+    const loc = (label.dataset.loc||'');
+    const sku = (label.dataset.sku||'');
+    const lot = (label.dataset.lot||'');
+    const show = (!qLoc || loc.includes(qLoc))
+              && (!qSku || sku.includes(qSku))
+              && (!qLot || lot.includes(qLot));
+    label.style.display = show ? '' : 'none';
   });
 }
 
